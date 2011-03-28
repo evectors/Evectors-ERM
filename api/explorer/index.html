@@ -1,0 +1,569 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!-- ERM API Explorer - created by Marc Barrot - version 1.0.0 - last modified 4/25/11 by MB - (c) 2011 Evectors Ltd -->
+<html>
+	<head>
+		<title>ERM API Explorer</title>
+		<link rel="shortcut icon" href="/api/explorer/img/favicon.ico">
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta name="description" content="Evectors has created an explorer for its Entity Relationship Management API">
+		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
+		<script type="text/javascript" src="/api/explorer/scripts/local.js"></script>
+		<link rel="stylesheet" type="text/css" href="/api/explorer/styles/local.css">
+	</head>
+	<body>
+		<div id="head"></div>
+		<div id="subhead">ERM API Explorer
+			<div><a href="http://evecto.rs/ermApiExplorerDocs" target="_blank" title="help is probably needed">explore the explorer with a guide</a></div>
+		</div>
+		<div id="main">
+			<div id="selector">
+				<div class="h">select a method</div>
+				<ul>
+					<li><a href="#" id="entity_type">entity_type
+					<div>Get, add, modify or delete entity types</div></a></li>
+					<li><a href="#" id="entity">entity
+					<div>Get, add, modify or delete entites</div></a></li>
+					<li><a href="#" id="rel_type">rel_type
+					<div>Get/add/modify/delete relationship types</div></a></li>
+					<li><a href="#" id="relationship">relationship
+					<div>Get, add, modify or delete relationships</div></a></li>
+				</ul>
+			</div>
+			<div id="params">
+				<div class="h">fill in parameters</div>
+				<form>
+					<div id="entity_type_p" class="panel">
+						<div class="req">
+							<span class="t">request type =&nbsp;</span>
+							<input type="radio" name="request" class="get" id="entity_type_p_default" value="GET" title="retrieve entity type"><label for="get" title="retrieve entity type">GET</label>
+							<input type="radio" name="request" class="post" value="POST" title="create entity type"><label for="post" title="create entity type">POST<span>/add</span></label>
+							<input type="radio" name="request" class="put" value="PUT" title="update entity type"><label for="put" title="update entity type">PUT<span>/modify</span></label>
+							<input type="radio" name="request" class="delete" value="DELETE" title="delete entity type"><label for="delete" title="delete entity type">DELETE</label>
+						</div>
+						<div  id="entity_type_p_get" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">compact =&nbsp;</td>
+									<td><input type="text" name="compact" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">offset =&nbsp;</td>
+									<td><input type="text" name="offset" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">limit =&nbsp;</td>
+									<td><input type="text" name="limit" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">count =&nbsp;</td>
+									<td><input type="text" name="count" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="entity_type_p_post" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">name =&nbsp;</td>
+									<td><input type="text" name="name" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">attributes =&nbsp;</td>
+									<td><input type="text" name="attributes" value="" class="def dict"></td>
+								</tr>
+								<tr>
+									<td class="c1">repository_kind =&nbsp;</td>
+									<td><input type="text" name="repository_kind" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="entity_type_p_put" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">name =&nbsp;</td>
+									<td><input type="text" name="name" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">attributes =&nbsp;</td>
+									<td><input type="text" name="attributes" value="" class="def dict"></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="entity_type_p_delete" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div class="exec">
+							<input type="button" name="entity_type_p_send" id="entity_type_p_send" value="send request">
+							<a href="https://www.socialtext.net/evectorspagesdocumentation/erm_api_entity_type" target="_blank">view entity_type documentation</a>
+							* required parameter
+						</div>
+					</div>
+					<div id="entity_p" class="panel">
+						<div class="req">
+							<span class="t">request type =&nbsp;</span>
+							<input type="radio" name="request" class="get" id="entity_p_default" value="GET" title="retrieve entity"><label for="get" title="retrieve entity">GET</label>
+							<input type="radio" name="request" class="post" value="POST" title="create entity"><label for="post" title="create entity">POST<span>/add</span></label>
+							<input type="radio" name="request" class="put" value="PUT" title="update entity"><label for="put" title="update entity">PUT<span>/modify</span></label>
+							<input type="radio" name="request" class="delete" value="DELETE" title="delete entity"><label for="delete" title="delete entity">DELETE</label>
+						</div>
+						<div id="entity_p_get" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* type =&nbsp;</td>
+									<td><input type="text" name="type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">compact =&nbsp;</td>
+									<td><input type="text" name="compact" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">return_attrs =&nbsp;</td>
+									<td><input type="text" name="return_attrs" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">return_tags =&nbsp;</td>
+									<td><input type="text" name="return_tags" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">return_rels =&nbsp;</td>
+									<td><input type="text" name="return_rels" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">united =&nbsp;</td>
+									<td><input type="text" name="united" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">offset =&nbsp;</td>
+									<td><input type="text" name="offset" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">limit =&nbsp;</td>
+									<td><input type="text" name="limit" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">count =&nbsp;</td>
+									<td><input type="text" name="count" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">uri =&nbsp;</td>
+									<td><input type="text" name="uri" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">name =&nbsp;</td>
+									<td><input type="text" name="name" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div id="entity_p_post" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* type =&nbsp;</td>
+									<td><input type="text" name="type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">name =&nbsp;</td>
+									<td><input type="text" name="name" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">attributes =&nbsp;</td>
+									<td><input type="text" name="attributes" value="" class="def"></td>
+								</tr>
+								<tr>
+									<td class="c1">tags =&nbsp;</td>
+									<td><input type="text" name="tags" value="" class="def dict"></td>
+								</tr>
+								<tr>
+									<td class="c1">password =&nbsp;</td>
+									<td><input type="text" name="password" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">force =&nbsp;</td>
+									<td><input type="text" name="force" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">custom_date =&nbsp;</td>
+									<td><input type="text" name="custom_date" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">remote_id =&nbsp;</td>
+									<td><input type="text" name="remote_id" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">uri =&nbsp;</td>
+									<td><input type="text" name="uri" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">longitude =&nbsp;</td>
+									<td><input type="text" name="longitude" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">latitude =&nbsp;</td>
+									<td><input type="text" name="latitude" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">uid =&nbsp;</td>
+									<td ><input type="text" name="uid" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">entity_union =&nbsp;</td>
+									<td><input type="text" name="entity_union" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div id="entity_p_put" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* type =&nbsp;</td>
+									<td><input type="text" name="type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">name =&nbsp;</td>
+									<td><input type="text" name="name" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">attributes =&nbsp;</td>
+									<td><input type="text" name="attributes" value="" class="def"></td>
+								</tr>
+								<tr>
+									<td class="c1">tags =&nbsp;</td>
+									<td><input type="text" name="tags" value="" class="def dict"></td>
+								</tr>
+								<tr>
+									<td class="c1">password =&nbsp;</td>
+									<td><input type="text" name="password" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">custom_date =&nbsp;</td>
+									<td><input type="text" name="custom_date" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">remote_id =&nbsp;</td>
+									<td><input type="text" name="remote_id" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">uri =&nbsp;</td>
+									<td><input type="text" name="uri" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">uid =&nbsp;</td>
+									<td><input type="text" name="uid" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">longitude =&nbsp;</td>
+									<td><input type="text" name="longitude" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">latitude =&nbsp;</td>
+									<td><input type="text" name="latitude" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">entity_union =&nbsp;</td>
+									<td><input type="text" name="entity_union" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div id="entity_p_delete" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* type =&nbsp;</td>
+									<td><input type="text" name="type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div class="exec">
+							<input type="button" name="entity_p_send" id="entity_p_send" value="send request">
+							<a href="https://www.socialtext.net/evectorspagesdocumentation/erm_api_entity" target="_blank">view entity documentation</a>
+							* required parameter
+						</div>
+					</div>
+					<div id="rel_type_p" class="panel">
+						<div class="req">
+							<span class="t">request type =&nbsp;</span>
+							<input type="radio" name="request" class="get" id="rel_type_p_default" value="GET" title="retrieve relation type"><label for="get" title="retrieve relation type">GET</label>
+							<input type="radio" name="request" class="post" value="POST" title="create relation type"><label for="post" title="create relation type">POST<span>/add</span></label>
+							<input type="radio" name="request" class="put" value="PUT" title="update relation type"><label for="put" title="update relation type">PUT<span>/modify</span></label>
+							<input type="radio" name="request" class="delete" value="DELETE" title="delete relation type"><label for="delete" title="delete relation type">DELETE</label>
+						</div>
+						<div  id="rel_type_p_get" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">slug =&nbsp;</td>
+									<td><input type="text" name="properties" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">id =&nbsp;</td>
+									<td><input type="text" name="id" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">offset =&nbsp;</td>
+									<td><input type="text" name="offset" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">limit =&nbsp;</td>
+									<td><input type="text" name="limit" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">properties =&nbsp;</td>
+									<td><input type="text" name="properties" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">count =&nbsp;</td>
+									<td><input type="text" name="count" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="rel_type_p_post" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">name =&nbsp;</td>
+									<td><input type="text" name="name" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">name_reverse =&nbsp;</td>
+									<td><input type="text" name="name_reverse" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">status =&nbsp;</td>
+									<td><input type="text" name="status" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">reciprocated =&nbsp;</td>
+									<td><input type="text" name="reciprocated" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="rel_type_p_put" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">or *id =&nbsp;</td>
+									<td><input type="text" name="id" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">name =&nbsp;</td>
+									<td><input type="text" name="name" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">name_reverse =&nbsp;</td>
+									<td><input type="text" name="name_reverse" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">status =&nbsp;</td>
+									<td><input type="text" name="status" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">reciprocated =&nbsp;</td>
+									<td><input type="text" name="reciprocated" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="rel_type_p_delete" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* slug =&nbsp;</td>
+									<td><input type="text" name="slug" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">or * id =&nbsp;</td>
+									<td><input type="text" name="id" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div class="exec">
+							<input type="button" name="rel_type_p_send" id="rel_type_p_send" value="send request">
+							<a href="https://www.socialtext.net/evectorspagesdocumentation/erm_api_rel_type" target="_blank">view rel_type documentation</a>
+							* required parameter
+						</div>
+					</div>
+					<div id="relationship_p" class="panel">
+						<div class="req">
+							<span class="t">request type =&nbsp;</span>
+							<input type="radio" name="request" class="get" id="relationship_p_default" value="GET" title="retrieve relationship"><label for="get" title="retrieve relationship">GET</label>
+							<input type="radio" name="request" class="post" value="POST" title="create relationship"><label for="post" title="create relationship">POST<span>/add</span></label>
+							<input type="radio" name="request" class="put" value="PUT" title="update relationship"><label for="put" title="update relationship">PUT<span>/modify</span></label>
+							<input type="radio" name="request" class="delete" value="DELETE" title="delete relationship"><label for="delete" title="delete relationship">DELETE</label>
+						</div>
+						<div  id="relationship_p_get" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* rel_type =&nbsp;</td>
+									<td><input type="text" name="rel_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">entity_from =&nbsp;</td>
+									<td><input type="text" name="entity_from" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">entity_from_uid =&nbsp;</td>
+									<td><input type="text" name="entity_from_uid" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">entity_from_type =&nbsp;</td>
+									<td><input type="text" name="entity_from_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">entity_to =&nbsp;</td>
+									<td><input type="text" name="entity_to" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">entity_to_uid =&nbsp;</td>
+									<td><input type="text" name="entity_to_uid" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">entity_to_type =&nbsp;</td>
+									<td><input type="text" name="entity_to_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">offset =&nbsp;</td>
+									<td><input type="text" name="offset" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">limit =&nbsp;</td>
+									<td><input type="text" name="limit" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">count =&nbsp;</td>
+									<td><input type="text" name="count" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">compact =&nbsp;</td>
+									<td><input type="text" name="compact" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">tags =&nbsp;</td>
+									<td><input type="text" name="tags" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">sort =&nbsp;</td>
+									<td><input type="text" name="sort" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="relationship_p_post" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* rel_type =&nbsp;</td>
+									<td><input type="text" name="rel_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_from =&nbsp;</td>
+									<td><input type="text" name="entity_from" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_from_type =&nbsp;</td>
+									<td><input type="text" name="entity_from_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_to =&nbsp;</td>
+									<td><input type="text" name="entity_to" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_to_type =&nbsp;</td>
+									<td><input type="text" name="entity_to_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">tags =&nbsp;</td>
+									<td><input type="text" name="tags" value="" class="def dict"></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="relationship_p_put" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* rel_type =&nbsp;</td>
+									<td><input type="text" name="rel_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_from =&nbsp;</td>
+									<td><input type="text" name="entity_from" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_from_type =&nbsp;</td>
+									<td><input type="text" name="entity_from_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_to =&nbsp;</td>
+									<td><input type="text" name="entity_to" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_to_type =&nbsp;</td>
+									<td><input type="text" name="entity_to_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">tags =&nbsp;</td>
+									<td><input type="text" name="tags" value="" class="def dict"></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="relationship_p_delete" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">id =&nbsp;</td>
+									<td><input type="text" name="id" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div class="exec">
+							<input type="button" name="relationship_p_send" id="relationship_p_send" value="send request">
+							<a href="https://www.socialtext.net/evectorspagesdocumentation/erm_api_relationship" target="_blank">view relationship documentation</a>
+							* required parameter
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+		<div class="inter">
+			<div class="h">Query</div>
+			<div id="query">&nbsp;</div>
+			<div id="data"></div>
+		</div>
+		<div class="inter">
+			<div class="h">Result</div>
+			<div id="result">
+				<pre>{}</pre>
+			</div>
+		</div>
+		<div id="foot">
+			&copy; 2011 Evectors, Ltd.
+		</div>
+	</body>
+</html>

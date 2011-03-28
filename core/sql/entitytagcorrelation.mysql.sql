@@ -1,0 +1,1 @@
+CREATE INDEX cetc_tagschemaweight ON core_entitytagcorrelation(object_tag_id,object_tag_schema_id,weight);

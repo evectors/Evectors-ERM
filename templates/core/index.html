@@ -1,0 +1,17 @@
+<html>
+	<body>
+{% if last_entities %}
+	<h1>Latest 10 entities</h1>
+	<ul>
+		{% for entity in last_entities %}
+			<li>{{entity.id}}&nbsp;{{entity.name}}&nbsp;<b>{{entity.type}}</b></li>
+		{% endfor%}
+	</ul>
+{% else %}
+	<p>No entities are available.</p>
+{% endif %}
+
+	
+	
+	</body>
+</html>

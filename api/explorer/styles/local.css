@@ -1,0 +1,220 @@
+/*
+	ERM API Explorer stylesheet
+	version 1.0.0
+	last modified 4/25/11 by MB
+	(c) 2011 Evectors Ltd
+*/
+
+BODY {
+	margin: 0;
+	padding: 0;
+	font-family: 'Trade Gothic W01 Light','Helvetica Neue', Arial, Verdana, sans-serif;
+	font-size: 14px;
+}
+
+A {
+	color: blue;
+	text-decoration: none;
+}
+
+A:hover {
+	text-decoration: underline;
+}
+
+TABLE, INPUT {
+	font-family: 'Trade Gothic W01 Light','Helvetica Neue', Arial, Verdana, sans-serif;
+	font-size: 14px;
+}
+
+#head {
+	margin: 15px 20px 0 20px;
+	height: 50px;
+	background: #fff url(/api/explorer/img/logo.png) no-repeat;
+}
+
+#subhead {
+	margin: 0 20px;
+	border: 1px solid #c9d7f1;
+	padding: 5px 10px;
+	background: #ebeff9;
+	font-size: 20px;
+	font-weight: bold;
+}
+
+#subhead DIV {
+	float: right;
+	padding: 9px 0 0 0;
+	font-size: 12px;
+	font-weight: normal;
+}
+
+#main {
+	margin: 0 20px;
+	border-bottom: 1px solid #c9d7f1;
+}
+
+DIV.h {
+	border-bottom: 1px solid #c9d7f1;
+	padding: 5px;
+	background: #eee;
+	font-size: 14px;
+	font-weight: normal;
+	text-align: center;
+}
+
+#selector {
+	float: left;
+	border-left: 1px solid #c9d7f1;
+	width: 299px;
+}
+
+#selector UL {
+	margin: 0;
+	padding: 0;
+	height: 200px;
+	overflow: auto;
+}
+
+#selector LI {
+	list-style-type: none;
+	margin: 0;
+	border-bottom: 1px solid #eee;
+	padding: 8px 12px;
+}
+
+#selector LI A {
+	display: block;
+	margin-bottom: 2px;
+	color: black;
+	font-weight: bold;
+	text-decoration: none;
+}
+
+#selector LI A DIV {
+	color: #666;
+	font-weight: normal;
+}
+
+#params {
+	margin-left: 300px;
+	border-left: 1px solid #c9d7f1;
+	border-right: 1px solid #c9d7f1;
+}
+
+#params FORM {
+	margin: 0;
+	padding: 0;
+	height: 200px;
+}
+
+#params DIV.panel {
+	display: none;
+}
+
+#params DIV.panel DIV {
+	padding: 5px 10px;
+}
+
+#params DIV.panel DIV.req {
+	height: 19px;
+}
+
+#params DIV.panel DIV.req SPAN.t {
+	display: block;
+	float: left;
+	width: 140px;
+	text-align: right;
+}
+
+#params DIV.panel DIV.req LABEL SPAN {
+	font-size: 12px;
+	color: #bbb;
+}
+
+#params DIV.cmd {
+	display: none;
+	height: 131px;
+	overflow: auto;
+}
+
+#params TABLE {
+	border: none;
+	border-spacing: 0;
+	width: 100%;
+}
+
+TD.c1 {
+	width: 140px;
+	text-align: right;
+}
+
+TD INPUT {
+	width: 100%;
+}
+
+#params DIV.exec {
+	border-top: 1px solid #c9d7f1;
+	height: 19px;
+	background: #eee;
+}
+
+#params DIV.exec INPUT {
+	float: right;
+	display: block;
+	margin: 0 15px 0 0;
+	font-size: 12px;
+}
+
+#params DIV.exec A {
+	float: right;
+	display: block;
+	margin: 0 20px 0 0;
+	padding: 2px 0 0 0;
+	font-size: 12px;
+}
+
+DIV.inter {
+	margin: 0 20px;
+	border-left: 1px solid #c9d7f1;
+	border-right: 1px solid #c9d7f1;
+}
+
+DIV.inter A {
+	margin-left: 40px;
+}
+
+#query {
+	border-bottom: 1px solid #c9d7f1;
+	padding: 10px;
+	font-family: 'Courier New', Courier, fixe;
+}
+
+#data {
+	display: none;
+	position: absolute;
+	margin: -200px 0 0 420px;
+	border: 1px solid #c9d7f1;
+	width: 400px;
+	height: 400px;
+	padding: 10px;
+	overflow: auto;
+	background: #ebeff9;
+}
+
+#data DIV {
+	text-align: right;
+}
+
+#result {
+	border-bottom: 1px solid #c9d7f1;
+	padding: 10px;
+	overflow: auto;
+}
+
+#foot {
+	position: absolute;
+	bottom: 0;
+	width: 100%;
+	padding: 5px 0;
+	text-align: center;
+}

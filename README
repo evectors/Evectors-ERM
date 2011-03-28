@@ -1,3 +1,206 @@
-This is empty for now.
+=================
+ERM Installation
+=================
 
-It will explain the details of the ERM distro as soon as we have something ready for publication.
+
+Prerequisites
+-------------
+
+MAC OS X systems
+
+System
+Version:	Mac OS X 10.6
+
+Apache [built-in]
+Version:	Apache/2.2
+
+GCC [buil-in]
+Version:	4.2.1
+
+Installation:
+If not already installed, you van find GCC as part of the Developer Tools, from the Mac OS the original installation media.
+
+Python [built-in]
+Version: 2.6
+
++ mod_wsgi
+
+Version: 3.3
+Site: http://code.google.com/p/modwsgi/
+
+Download: http://code.google.com/p/modwsgi/downloads/detail?name=mod_wsgi-macosx106-ap22py26-3.3.so
+
+Installation:
+1/ copy the downloaded file to /usr/libexec/apache2 and rename it mod_wsgi.so
+2/ update /etc/apache2/httpd.conf and add the following line in the LoadModule section:
+LoadModule wsgi_module     libexec/apache2/mod_wsgi.so
+3/ restart Web Sharing from the Sharing system preferences
+
++ MySQL
+
+Version: 5.x
+Site: http://www.mysql.com/
+
+Download: http://www.mysql.com/downloads/mysql/
+Select the Mac OS X ver. 10.6 (x86, 64-bit), DMG Archive
+
+Installation: http://dev.mysql.com/doc/refman/5.5/en/macosx-installation.html
+
++ MySQLdb
+
+Version: 1.2.3
+Site: http://sourceforge.net/projects/mysql-python/
+
+Download: http://sourceforge.net/projects/mysql-python/files/mysql-python/1.2.3/MySQL-python-1.2.3.tar.gz/download
+
+Installation:
+$ tar xzf MySQL-python-1.2.3.tar.gz
+$ cd MySQL-python-1.2.3
+$ python setup.py clean
+$ python setup.py build
+$ sudo python setup.py install # or su first
+
+MySQL for MacOS X packages are not fully consistent with their default instal location. Depending on your version of MySQL, you may have to edit the MySQL-python packages's setup_posix.py file to update the path of mysql_config from the default "mysql_config" to "/usr/local/mysql/bin/mysql_config".
+
++ Django
+
+Version: 1.2.5
+Site: http://www.djangoproject.com/
+Download: http://www.djangoproject.com/download/1.2.5/tarball/
+
+Installation:
+$ tar xzf Django-1.2.5.tar.gz
+$ cd Django-1.2.5
+$ sudo python setup.py install # or su first
+
+Verification:
+$ python
+>>> import django
+>>> print django.get_version()
+
++ python-cjson
+
+Version: 1.0.5
+Site: http://pypi.python.org/pypi/python-cjson
+Download: http://pypi.python.org/packages/source/p/python-cjson/python-cjson-1.0.5.tar.gz#md5=4d55b66ecdf0300313af9d030d9644a3
+
+Installation:
+$ tar xzf python-cjson-1.0.5.tar.gz
+$ cd python-cjson-1.0.5
+$ sudo python setup.py install # or su first
+
+
+Building and installing
+-----------------------
+
++ Create a new 'document root' folder on your system
+
+This folder must be named 'erm'. Its content must be read accessible to user '_www'. Copy the content of ERM's git distribution to this 'erm' folder.
+
++ Update your Apache httpd.conf with a new virtual host for the erm.
+
+You may want to create a specific erm.conf file in /etc/apache2/other.
+All conf files in 'other' are included in the Apache configuration.
+Copy and paste the virtual host declaration below, then update as needed.
+
+<VirtualHost *:80>
+
+	# if you are testing on your local Mac, check its all lowercase computer name in the Sharing system preferences
+	ServerName erm.your_lc_computer_name.local
+
+    ServerAdmin webmaster@localhost
+
+	# your documents root may be anywhere user _www has read access
+	# however, the top directory containing the downloaded erm code must be named 'erm'
+	DocumentRoot "/Whatever/path/you/please/erm"
+
+	<Directory />
+		Options FollowSymLinks
+		AllowOverride None
+		Order allow,deny
+		Allow from all
+	</Directory>
+
+	# Update document_root_path in the line below
+	WSGIScriptAlias / "/document_root_path/apache/django.wsgi"
+
+	# Update document_root_path in the line below
+	Alias /media "/document_root_path/media"
+
+	<Location "/media">
+    		SetHandler None
+	</Location>
+
+	# Update document_root_path in the line below
+	Alias /api "/document_root_path/api"
+
+	<Location "/api">
+    		SetHandler None
+	</Location>
+
+	# Set up error and access log files as you best please.
+	# Remember user _www must have write access to them.
+	LogLevel warn
+
+	CustomLog "/Whatever/path/you/please/for/logs/access_log" "%h %l %u %t %T \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\""
+	ErrorLog "/Whatever/path/you/please/for/logs/error_log"
+</VirtualHost>
+
++ Create a symbolic link for the media directory in the document root:
+
+$ cd /document_root_path
+$ ln -s /Library/Python/2.6/site-packages/django/contrib/admin/media media
+
++ Create an apache folder in your document root and a django.wsgi document in it
+
+$ cd /document_root_path
+$ mkdir apache
+$ cd apache
+$ touch django.wsgi
+
++ Update your django.wsgi file
+
+Copy and paste the lines below, updating the path to your document root's parent folder accordingly:
+
+import os
+import sys
+os.environ['DJANGO_SETTINGS_MODULE'] = 'erm.settings'
+sys.path.append('/document_root_path_parent/')
+import django.core.handlers.wsgi
+application = django.core.handlers.wsgi.WSGIHandler()
+
++ Create the erm databases in MySQL:
+
+Run the mysql client and enter the commands listed below. Replace 'password' with any string of your choosing.
+
+$ sudo mysql
+mysql> create database erm_db character set utf8 collate utf8_general_ci;
+mysql> grant all on erm_db.* to 'erm_user'@'localhost' identified by 'password';
+mysql> create database erm_dm_simpledb character set utf8 collate utf8_general_ci;
+mysql> grant all on erm_dm_simpledb.* to 'erm_user'@'localhost' identified by 'password';
+mysql> flush privileges;
+
++ Create local_settings.py
+Copy and rename the local_settings.py.sample file provided in the distribution:
+
+$ cd /document_root_path
+$ cp local_settings.py.sample local_settings.py
+
+Edit it to update the DATABASE_PASSWORD parameter according to your choice at the previous step.
+
++ Create the Django initial structure
+
+$ cd /document_root_path
+$ python ./manage.py syncdb
+
+When prompted, create a new django superuser and password.
+
+
+Testing
+-------
+
+You should be able to log in as a Django admin at http://your.domain.name/admin
+
+You should also be able to access the ERM API Explorer at http://your.domain.name/api/explorer/
+
+This is a good starting point to start playing with the API, and provides links to all the relevant documentation.

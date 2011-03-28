@@ -1,0 +1,26 @@
+#DEBUG = False
+#DEBUG_JSON=False
+#DEBUG_API=False
+#DEBUG_ERM=False
+#DEBUG_SQL=False
+
+#ADMINS = (
+#     ('Administrator', 'info@evectors.it'),
+#)
+
+DATABASE_HOST = 'localhost'
+DATABASE_NAME = 'erm_db'             # Or path to database file if using sqlite3.
+DATABASE_USER = 'erm_user'           # Not used with sqlite3.
+DATABASE_PASSWORD = 'erm_pass'       # Not used with sqlite3.
+
+DM_DATABASE_HOST = DATABASE_HOST
+DM_DATABASE_USER = DATABASE_USER
+DM_DATABASE_NAME = 'erm_dm_simpledb' 
+DM_DATABASE_PASSWORD = DATABASE_PASSWORD
+
+#ADMIN_MEDIA_PREFIX = '/media/'
+
+#LANGUAGE_CODE = 'en-us'
+
+SECRET_KEY = 'aaa'
+SECRET_KEY_LENGTH = len(SECRET_KEY)

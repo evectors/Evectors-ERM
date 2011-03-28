@@ -1,0 +1,1 @@
+CREATE INDEX crst_items_reltype_schema ON core_relationshipschemedtag(items_count,object_type_id, schema_id);

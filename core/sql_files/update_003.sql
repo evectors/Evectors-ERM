@@ -1,0 +1,2 @@
+ALTER TABLE `core_activity` MODIFY COLUMN `title` VARCHAR(512);
+ALTER TABLE `core_activity` MODIFY COLUMN `url` VARCHAR(200);
