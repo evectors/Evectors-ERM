@@ -93,7 +93,7 @@ $ sudo python setup.py install # or su first
 Building and installing
 -----------------------
 
-+ Create a new 'document root' folder on your system
++ Create a new 'document root' folder on your system.
 
 This folder must be named 'erm'. Its content must be read accessible to user '_www'. Copy the content of ERM's git distribution to this 'erm' folder.
 
@@ -158,7 +158,7 @@ $ mkdir apache
 $ cd apache
 $ touch django.wsgi
 
-+ Update your django.wsgi file
++ Update your django.wsgi file.
 
 Copy and paste the lines below, updating the path to your document root's parent folder accordingly:
 
@@ -169,7 +169,7 @@ sys.path.append('/document_root_path_parent/')
 import django.core.handlers.wsgi
 application = django.core.handlers.wsgi.WSGIHandler()
 
-+ Create the erm databases in MySQL:
++ Create the erm databases in MySQL.
 
 Run the mysql client and enter the commands listed below. Replace 'password' with any string of your choosing.
 
@@ -180,7 +180,7 @@ mysql> create database erm_dm_simpledb character set utf8 collate utf8_general_c
 mysql> grant all on erm_dm_simpledb.* to 'erm_user'@'localhost' identified by 'password';
 mysql> flush privileges;
 
-+ Create local_settings.py
++ Create the local_settings.py file.
 Copy and rename the local_settings.py.sample file provided in the distribution:
 
 $ cd /document_root_path
@@ -188,7 +188,7 @@ $ cp local_settings.py.sample local_settings.py
 
 Edit it to update the DATABASE_PASSWORD parameter according to your choice at the previous step.
 
-+ Create the Django initial structure
++ Create the Django initial structure.
 
 $ cd /document_root_path
 $ python ./manage.py syncdb
@@ -199,8 +199,8 @@ When prompted, create a new django superuser and password.
 Testing
 -------
 
-You should be able to log in as a Django admin at http://your.domain.name/admin
+You should be able to log in as a Django admin at http://your.domain.name/admin.
 
-You should also be able to access the ERM API Explorer at http://your.domain.name/api/explorer/
+You should also be able to access the ERM API Explorer at http://your.domain.name/api/explorer/.
 
 This is a good starting point to start playing with the API, and provides links to all the relevant documentation.
