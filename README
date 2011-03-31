@@ -14,14 +14,17 @@ Version:	Mac OS X 10.6
 Apache [built-in]
 Version:	Apache/2.2
 
-GCC [buil-in]
-Version:	4.2.1
-
-Installation:
-If not already installed, you can find GCC as part of the Developer Tools, from the Mac OS original installation media.
-
 Python [built-in]
 Version: 2.6
+
++ GCC
+
+Version:	4.x
+Site: http://gcc.gnu.org/
+Download: http://developer.apple.com/technologies/xcode.html
+
+Installation:
+GCC is part of XCode, lately at version 4. XCode is no longer part of the standard MacOS distribution, but it can be downloaded from the above link if you're a member of Apple's MacOS Developer Program (small yearly fee applies).
 
 + mod_wsgi
 
@@ -60,6 +63,9 @@ $ python setup.py clean
 $ python setup.py build
 $ sudo python setup.py install # or su first
 
+The above can of course be done all in one step if you have installed Python's devtools package which includes easy_install:
+$ sudo easy_install MySQL-python
+
 MySQL for MacOS X packages are not fully consistent with their default instal location. Depending on your version of MySQL, you may have to edit the MySQL-python packages's setup_posix.py file to update the path of mysql_config from the default "mysql_config" to "/usr/local/mysql/bin/mysql_config".
 
 + Django
@@ -88,6 +94,9 @@ Installation:
 $ tar xzf python-cjson-1.0.5.tar.gz
 $ cd python-cjson-1.0.5
 $ sudo python setup.py install # or su first
+
+or
+$ sudo easy_install python-cjson
 
 
 Building and installing
@@ -168,6 +177,18 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'erm.settings'
 sys.path.append('/document_root_path_parent/')
 import django.core.handlers.wsgi
 application = django.core.handlers.wsgi.WSGIHandler()
+
++ Create the logging directory.
+
+All erm activity is logged by default in the /var/log/pages folder. To create it on your local machine:
+
+$ sudo mkdir /var/log/pages
+$ chown _www /var/log/pages
+$ chgrp _www /var/log/pages
+
+If you elect to provide an alternate path, you need to update the settings.py file accordingly, then bounce the apache server processes
+
+$ sudo apachectl restart
 
 + Create the erm databases in MySQL.
 

@@ -1,8 +1,8 @@
 /*
 	ERM API Explorer front-end code
 	version 1.0.0
-	last modified 4/25/11 by MB
-	(c) 2011 Evectors Ltd
+	last modified 4/31/11 by MB
+	Copyright (c) 2011 Evectors Ltd.
 */
 
 var selector = {																					// API endpoints selector object
@@ -137,7 +137,7 @@ var pane = {																						// parameters pane object
 
 var request = {																						// api request object
 
-	key: 'aaa',																						// demo site API key
+	key: 'aaa',																						// default API key, update with real key on production server.
 
 	data : {},																						// POST/PUT/DELETE request parameters
 
@@ -276,9 +276,9 @@ var result = {																						// result pane object
 };																					// result pane object
 
 var init = function () {																			// global initialisation
-	selector.init ();
-	pane.init ();
-	result.init ();
+	selector.init ();																				// endpoints selection object
+	pane.init ();																					// parameters pane object
+	result.init ();																					// result pane object
 };																		// global initialisation
 
 window.onload = init;
