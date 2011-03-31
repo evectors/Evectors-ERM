@@ -186,7 +186,7 @@ $ sudo mkdir /var/log/pages
 $ chown _www /var/log/pages
 $ chgrp _www /var/log/pages
 
-If you elect to provide an alternate path, you need to update the settings.py file accordingly, then bounce the apache server processes
+If you elect to provide an alternate path, you need to update the settings.py file accordingly, then bounce the apache server processes.
 
 $ sudo apachectl restart
 
@@ -224,4 +224,6 @@ You should be able to log in as a Django admin at http://your.domain.name/admin.
 
 You should also be able to access the ERM API Explorer at http://your.domain.name/api/explorer/.
 
-This is a good starting point to start playing with the API, and provides links to all the relevant documentation.
+This is a good point to start playing with the API, and provides links to all the relevant documentation.
+
+Links to the documentation can also be found in the project's Wiki page on github: https://github.com/evectors/Evectors-ERM/wiki.
