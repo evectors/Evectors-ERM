@@ -20,15 +20,20 @@ Version: 2.6
 + GCC
 
 Version:	4.x
-Site: http://gcc.gnu.org/
-Download: http://developer.apple.com/technologies/xcode.html
+
+Site:		http://gcc.gnu.org/
+
+Download:	http://connect.apple.com/cgi-bin/WebObjects/MemberSite.woa/wa/getSoftware?bundleID=20792
 
 Installation:
-GCC is part of XCode, lately at version 4. XCode is no longer part of the standard MacOS distribution, but it can be downloaded from the above link if you're a member of Apple's MacOS Developer Program (small yearly fee applies).
+GCC is part of XCode, currently at version 4.
+However, some required packages for python extensions insist on building 'universal' binaries with PPC components. The latest version of Xcode that supports the PPC architecture is 3.2.6.
+XCode is no longer part of the standard MacOS distribution, but version 3.2.6 can be downloaded from the above link if you're a member of Apple's MacOS Developer Program (a small yearly fee may apply).
 
 + mod_wsgi
 
 Version: 3.3
+
 Site: http://code.google.com/p/modwsgi/
 
 Download: http://code.google.com/p/modwsgi/downloads/detail?name=mod_wsgi-macosx106-ap22py26-3.3.so
@@ -42,6 +47,7 @@ LoadModule wsgi_module     libexec/apache2/mod_wsgi.so
 + MySQL
 
 Version: 5.x
+
 Site: http://www.mysql.com/
 
 Download: http://www.mysql.com/downloads/mysql/
@@ -52,6 +58,7 @@ Installation: http://dev.mysql.com/doc/refman/5.5/en/macosx-installation.html
 + MySQLdb
 
 Version: 1.2.3
+
 Site: http://sourceforge.net/projects/mysql-python/
 
 Download: http://sourceforge.net/projects/mysql-python/files/mysql-python/1.2.3/MySQL-python-1.2.3.tar.gz/download
@@ -66,12 +73,15 @@ $ sudo python setup.py install # or su first
 The above can of course be done all in one step if you have installed Python's devtools package which includes easy_install:
 $ sudo easy_install MySQL-python
 
-MySQL for MacOS X packages are not fully consistent with their default instal location. Depending on your version of MySQL, you may have to edit the MySQL-python packages's setup_posix.py file to update the path of mysql_config from the default "mysql_config" to "/usr/local/mysql/bin/mysql_config".
+MySQL for MacOS X packages are not fully consistent with their default instal location.
+Depending on your version of MySQL, you may have to edit the MySQL-python packages's site.cfg file to un-comment and update the path of mysql_config to "/usr/local/mysql/bin/mysql_config" or wherever mysql_config is hiding on your system.
 
 + Django
 
 Version: 1.2.5
+
 Site: http://www.djangoproject.com/
+
 Download: http://www.djangoproject.com/download/1.2.5/tarball/
 
 Installation:
@@ -87,7 +97,9 @@ $ python
 + python-cjson
 
 Version: 1.0.5
+
 Site: http://pypi.python.org/pypi/python-cjson
+
 Download: http://pypi.python.org/packages/source/p/python-cjson/python-cjson-1.0.5.tar.gz#md5=4d55b66ecdf0300313af9d030d9644a3
 
 Installation:
