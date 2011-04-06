@@ -71,7 +71,7 @@ $ python setup.py build
 $ sudo python setup.py install # or su first
 
 The above can of course be done all in one step if you have installed Python's devtools package which includes easy_install:
-$ sudo easy_install MySQL-python
+$ sudo python -m easy_install MySQL-python
 
 MySQL for MacOS X packages are not fully consistent with their default instal location.
 Depending on your version of MySQL, you may have to edit the MySQL-python packages's site.cfg file to un-comment and update the path of mysql_config to "/usr/local/mysql/bin/mysql_config" or wherever mysql_config is hiding on your system.
@@ -88,6 +88,9 @@ Installation:
 $ tar xzf Django-1.2.5.tar.gz
 $ cd Django-1.2.5
 $ sudo python setup.py install # or su first
+
+or
+$ sudo python -m easy_install Django
 
 Verification:
 $ python
@@ -108,7 +111,7 @@ $ cd python-cjson-1.0.5
 $ sudo python setup.py install # or su first
 
 or
-$ sudo easy_install python-cjson
+$ sudo python -m easy_install python-cjson
 
 
 Building and installing
