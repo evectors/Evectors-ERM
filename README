@@ -257,7 +257,7 @@ Because MySQL and Python distributions are not fully standardized under MacOS X,
 
 The ERM code does not include any authentication or encryption layer. All data stored as entities and relationships travels in the clear, and may be updated by anyone with knowledge of the API.
 
-For experimentation, this code base is supposed to execute within your local system, or inside a virtual machine with no direct exposure to the world Wild Web.
+For experimentation, this code base is supposed to execute within your local system, or inside a virtual machine with no direct exposure to the world Wild web.
 
 When Evectors deploys ERM, its API is always accessed within its server itself, or from systems within a DMZ. The API is never exposed to the Web directly.
 
