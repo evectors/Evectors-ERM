@@ -562,6 +562,10 @@ def get_entity(params):
 
         if len(type_ids)==0:
             return list()
+
+        list_offset=max(int(params.get('offset', 0)),0)
+        list_limit=max(int(params.get('limit', 20)),1)
+        
 #===========================>Specialized query: filtering on tag, ordered by tag weight            
         fast_tags_sort_params=set(['type', 'sort', 'limit', 'offset', 'jindent', 'total_count', 'compact', 'return_tags', 'return_attrs'])
         fl_do_fast_tags_sort=False
@@ -569,7 +573,7 @@ def get_entity(params):
             
             fl_do_fast_tags_sort=True
             sort_tag=real_params['sort'].split(":")[1]
-            schema=""
+            sort_schema=""
             if sort_tag.find("{")>=0:
                 sort_tag, sort_schema=sort_tag.split('{')
                 sort_schema=sort_schema[:-1]
@@ -608,11 +612,11 @@ def get_entity(params):
             elif len(type_ids)>1:
                 wheres_list.append("core_entitytagcorrelation.object_type_id IN (%s)" % ','.join(type_ids))
             
-            if tag!="":
-                wheres_list.append("core_entitytagcorrelation.object_tag_id = '%s'" % tag)
+            if sort_tag!="":
+                wheres_list.append("core_entitytagcorrelation.object_tag_id = '%s'" % sort_tag)
             
-            if schema!="":
-                wheres_list.append("core_entitytagcorrelation.object_tag_schema_id = (SELECT id FROM core_entitytagschema WHERE core_entitytagschema.slug='%s')" % unquote(schema))
+            if sort_schema!="":
+                wheres_list.append("core_entitytagcorrelation.object_tag_schema_id = (SELECT id FROM core_entitytagschema WHERE core_entitytagschema.slug='%s')" % unquote(sort_schema))
 
             core_selection="FROM core_entitytagcorrelation WHERE %s" % " AND ".join(wheres_list)
             

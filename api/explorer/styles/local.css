@@ -1,7 +1,7 @@
 /*
 	ERM API Explorer stylesheet
-	version 1.0.1
-	last modified 4/29/11 by PV
+	version 1.0.2
+	last modified 4/12/2011 by MB
 	Copyright (c) 2011 Evectors Ltd.
 */
 
@@ -72,7 +72,7 @@ DIV.h {
 #selector UL {
 	margin: 0;
 	padding: 0;
-	height: 287px;
+	height: 303px;
 	overflow: auto;
 }
 
@@ -105,7 +105,7 @@ DIV.h {
 #params FORM {
 	margin: 0;
 	padding: 0;
-	height: 287px;
+	height: 303px;
 }
 
 #params DIV.panel {
@@ -135,7 +135,7 @@ DIV.h {
 #params DIV.cmd {
 	display: none;
 	font-family: 'Courier New', Courier, fixe;
-	height: 218px;
+	height: 234px;
 	overflow: auto;
     size: 10px;
 }

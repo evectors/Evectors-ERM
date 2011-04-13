@@ -2,11 +2,11 @@
 ERM Installation
 =================
 
+This document describes the installation of Evectors ERM on a Mac OS X system.
+Installation under other kinds of Unix systems should defer in small ways only.
 
 Prerequisites
 -------------
-
-MAC OS X systems
 
 System
 Version:	Mac OS X 10.6
@@ -20,19 +20,15 @@ Version: 2.6
 
 + GCC
 
-Version:	4.x
+Version:	4.2
 
 Site:		http://gcc.gnu.org/
 
-Download:	http://connect.apple.com/cgi-bin/WebObjects/MemberSite.woa/wa/getSoftware?bundleID=20792
+Download:	http://itunes.apple.com/us/app/xcode/id422352214?mt=12
 
 Installation:
 GCC is part of XCode, currently at version 4.
-However, some required packages for python extensions insist on building 'universal' binaries with PPC components. The latest version of Xcode that supports the PPC architecture is 3.2.6.
-XCode is no longer part of the standard MacOS distribution, but version 3.2.6 can be downloaded from the above link if you're a member of Apple's MacOS Developer Program (a small yearly fee may apply).
-
-Note:
-If you are building for MacOS 10.5, and its built-in python 2.5, the latest compatible XCode version is 3.1.4, with gcc 4.0.1.
+XCode is no longer part of the standard MacOS distribution, but can be downloaded from the Mac App store for a nominal fee.
 
 
 + mod_wsgi
@@ -48,10 +44,6 @@ Installation:
 2/ update /etc/apache2/httpd.conf and add the following line in the LoadModule section:
 LoadModule wsgi_module     libexec/apache2/mod_wsgi.so
 3/ restart Web Sharing from the Sharing system preferences
-
-Note:
-If building on a 10.5, you need to build from the source instead:
-http://code.google.com/p/modwsgi/downloads/detail?name=mod_wsgi-3.3.tar.gz
 
 
 + MySQL
@@ -84,9 +76,6 @@ $ sudo python setup.py install # or su first
 The above can of course be done all in one step if you have installed Python's devtools package which includes easy_install:
 $ sudo python -m easy_install MySQL-python
 
-MySQL for MacOS X packages are not fully consistent with their default instal location.
-Depending on your version of MySQL, you may have to edit the MySQL-python packages's site.cfg file to un-comment and update the path of mysql_config to "/usr/local/mysql/bin/mysql_config" or wherever mysql_config is hiding on your system.
-
 
 + Django
 
@@ -100,9 +89,6 @@ Installation:
 $ tar xzf Django-1.2.5.tar.gz
 $ cd Django-1.2.5
 $ sudo python setup.py install # or su first
-
-or
-$ sudo python -m easy_install Django
 
 Verification:
 $ python
@@ -121,10 +107,17 @@ Download: http://pypi.python.org/packages/source/p/python-cjson/python-cjson-1.0
 Installation:
 $ tar xzf python-cjson-1.0.5.tar.gz
 $ cd python-cjson-1.0.5
+
+Before running setup.py, you need to open it in a text editor and add the following 2 lines:
+
+import os
+os.environ['ARCHFLAGS']='-arch i386 -arch x86_64'
+
+Then save the updated version and execute it:
 $ sudo python setup.py install # or su first
 
-or
-$ sudo python -m easy_install python-cjson
+Note:
+Python tends to instal modules with the same options it was compiled with. The python 2.6 version bundled with OS 10.6 is a 'universal binary' with a PPC branch. However Xcode versions after 3.2.6 no longer support the powerpc architecture.
 
 
 Building and installing
@@ -255,3 +248,21 @@ You should also be able to access the ERM API Explorer at http://your.domain.nam
 This is a good point to start playing with the API, and provides links to all the relevant documentation.
 
 Links to the documentation can also be found in the project's Wiki page on github: https://github.com/evectors/Evectors-ERM/wiki.
+
+
+Notes
+-----
+
+Because MySQL and Python distributions are not fully standardized under MacOS X, installation of Evectors ERM is far from an exact science. If your system version differs from the one described in this document, or run into unexpected errors, refer to the FAQ section of the project's Wiki on GitHub: https://github.com/evectors/Evectors-ERM/wiki.
+
+The ERM code does not include any authentication or encryption layer. All data stored as entities and relationships travels in the clear, and may be updated by anyone with knowledge of the API.
+
+For experimentation, this code base is supposed to execute within your local system, or inside a virtual machine with no direct exposure to the world Wild Web.
+
+When Evectors deploys ERM, its API is always accessed within its server itself, or from systems within a DMZ. The API is never exposed to the Web directly.
+
+To identify each ERM instance, a secret key is part of the API path. You can generate a new pseudo-random key for your installation by running the erm/api/genkey.py script. You then need to copy the key as displayed and paste it in 2 locations:
+
+erm/local_settings.py: update SECRET_KEY
+erm/api/explorer/scripts/local.js:
+Update the 'key' property of the 'request' object.
