@@ -235,7 +235,7 @@ Edit it to update the DATABASE_PASSWORD parameter according to your choice at th
 $ cd /document_root_path
 $ python ./manage.py syncdb
 
-When prompted, create a new django superuser and password.
+When prompted, enter some email address, and create a new django superuser and password. By the way, now would be a good time to document the information you have just entered somewhere, before it slips your mind.
 
 
 Testing
@@ -263,6 +263,9 @@ When Evectors deploys ERM, its API is always accessed within its server itself, 
 
 To identify each ERM instance, a secret key is part of the API path. You can generate a new pseudo-random key for your installation by running the erm/api/genkey.py script. You then need to copy the key as displayed and paste it in 2 locations:
 
-erm/local_settings.py: update SECRET_KEY
-erm/api/explorer/scripts/local.js:
+erm/local_settings.py - line 25:
+update 'SECRET_KEY'
+erm/api/explorer/scripts/local.js - line 140:
 Update the 'key' property of the 'request' object.
+
+Restart Web Sharing from the Sharing system preferences or run sudo apachectl restart in a terminal session.
