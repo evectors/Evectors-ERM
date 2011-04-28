@@ -265,7 +265,7 @@ To identify each ERM instance, a secret key is part of the API path. You can gen
 
 erm/local_settings.py - line 25:
 update 'SECRET_KEY'
-erm/api/explorer/scripts/local.js - line 140:
+erm/api/explorer/scripts/local.js - line 142:
 Update the 'key' property of the 'request' object.
 
 Restart Web Sharing from the Sharing system preferences or run sudo apachectl restart in a terminal session.

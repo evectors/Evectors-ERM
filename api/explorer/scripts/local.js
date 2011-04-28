@@ -1,9 +1,11 @@
 /*
 	ERM API Explorer front-end code
-	version 1.0.0
-	last modified 4/31/11 by MB
+	version 1.0.1
+	last modified 4/15/11 by MB
 	Copyright (c) 2011 Evectors Ltd.
 */
+
+var _prefix = '/core/api';																			// default API url prefix, defined as global
 
 var selector = {																					// API endpoints selector object
 
@@ -142,7 +144,7 @@ var request = {																						// api request object
 	data : {},																						// POST/PUT/DELETE request parameters
 
 	show: function () {																				// display request string
-		var request_str = '<strong>' + pane.selected.toUpperCase () + '&nbsp;</strong>' + location.protocol + '//' + location.host + '/core/api/[api_key]/' + selector.selected + '/';
+		var request_str = '<strong>' + pane.selected.toUpperCase () + '&nbsp;</strong>' + location.protocol + '//' + location.host + _prefix + '/[api_key]/' + selector.selected + '/';
 		var panel = document.getElementById (selector.selected + '_p_' + pane.selected);
 		var inputs = panel.getElementsByTagName ('input');
 
@@ -194,7 +196,7 @@ var request = {																						// api request object
 	},																	// hide request parameters box
 
 	execute: function () {																			// send request to back-end
-		var url = '/core/api/' + this.key + '/' + selector.selected + '/';
+		var url = _prefix + '/' + this.key + '/' + selector.selected + '/';							// form request url up to method
 		var panel = document.getElementById (selector.selected + '_p_' + pane.selected);
 		var inputs = panel.getElementsByTagName ('input');
 
@@ -205,10 +207,11 @@ var request = {																						// api request object
 				search += (inputs[i].value) ? ((search) ? ';' : '') + inputs[i].name + '=' + inputs[i].value : '';
 			}
 		}
-		url += search;
+
+		url += search;																				// add parameters to request url if applicable
 		document.getElementById ('result').innerHTML = '<pre>working...</pre>';
 
-		$.ajax ({
+		$.ajax ({																					// send actual request via jQuery
 			type: pane.selected.toUpperCase (),
 			url: url,
 			data: (pane.selected.match (/(get|delete)/)) ? '' : JSON.stringify (request.data),

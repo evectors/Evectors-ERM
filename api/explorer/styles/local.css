@@ -1,7 +1,7 @@
 /*
 	ERM API Explorer stylesheet
-	version 1.0.2
-	last modified 4/12/2011 by MB
+	version 1.0.3
+	last modified 4/15/2011 by MB
 	Copyright (c) 2011 Evectors Ltd.
 */
 
@@ -35,7 +35,9 @@ TABLE, INPUT {
 
 #subhead {
 	margin: 0 20px;
-	border: 1px solid #c9d7f1;
+	border-top: 1px solid #c9d7f1;
+	border-right: 1px solid #c9d7f1;
+	border-left: 1px solid #c9d7f1;
 	padding: 5px 10px;
 	background: none repeat scroll 0 0 #ebeff9;
 	font-size: 20px;
@@ -65,6 +67,7 @@ DIV.h {
 
 #selector {
 	float: left;
+	border-top: 1px solid #c9d7f1;
 	border-left: 1px solid #c9d7f1;
 	width: 299px;
 }
@@ -98,8 +101,9 @@ DIV.h {
 
 #params {
 	margin-left: 300px;
-	border-left: 1px solid #c9d7f1;
+	border-top: 1px solid #c9d7f1;
 	border-right: 1px solid #c9d7f1;
+	border-left: 1px solid #c9d7f1;
 }
 
 #params FORM {
@@ -118,6 +122,10 @@ DIV.h {
 
 #params DIV.panel DIV.req {
 	height: 19px;
+}
+
+#params DIV.panel DIV.req INPUT {
+	width: 18px;
 }
 
 #params DIV.panel DIV.req SPAN.t {
