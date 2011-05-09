@@ -73,8 +73,47 @@ SECRET_KEY_LENGTH=len(SECRET_KEY)
 
 #facebook connector settings
 
+FACEBOOK_PERMISSIONS=[  
+                        'offline_access',
+#                         'publish_stream',
+#                         'create_event',
+#                         'rsvp_event',
+#                         'sms',
+#                         'publish_checkins',
+#                         'user_about_me',
+#                         'user_activities',
+#                         'user_birthday',
+#                         'user_education_history',
+#                         'user_events',
+#                         'user_groups',
+#                         'user_hometown',
+#                         'user_interests',
+#                         'user_likes',
+#                         'user_location',
+#                         'user_notes',
+#                         'user_online_presence',
+#                         'user_photo_video_tags',
+#                         'user_photos',
+#                         'user_relationships',
+#                         'user_relationship_details',
+#                         'user_religion_politics',
+#                         'user_status',
+#                         'user_videos',
+#                         'user_website',
+#                         'user_work_history',
+#                         'email',
+#                         'read_friendlists',
+#                         'read_insights',
+#                         'read_mailbox',
+#                         'read_requests',
+#                         'read_stream',
+#                         'xmpp_login',
+#                         'ads_management',
+#                         'user_checkins'
+                        ]
 FACEBOOK_CONNECTOR_API_KEY=""
 FACEBOOK_CONNECTOR_SECRET_KEY=""
+FACEBOOK_CONNECTOR_REDIRECT_URI="http://www.example.com"
 
 #twitter connector settings
 
@@ -85,10 +124,33 @@ TWITTER_APP_CONSUMER_SECRET=""
 
 SEARCH_ENGINE_ACTIVE=False
 SEARCH_ENGINE_ENGINE='lucene'
+SEARCH_ENGINE_SORTABLE_ATTRIBUTES=dict()
+
+#example:
+#SEARCH_ENGINE_SORTABLE_ATTRIBUTES={
+#         'user':{
+#                 {'field':'birthdate',
+#                'kind':'datetime',
+#                'name':'birthdate'
+#                },
+#                {'field':'score',
+#                'kind':'number',
+#                'name':'number'
+#                },
+#                {'field':'nickname',
+#                'kind':'text',
+#                'name':'nickname_sort',
+#                'length':20
+#                }
+#         }
+#    }
 
 #lucene prefs
 
 LUCENE_INDEX_DIR='/var/lucene/indexes'
+LUCENE_INITIAL_HEAP='8m'
+LUCENE_MAX_HEAP=LUCENE_INITIAL_HEAP
+LUCENE_MAX_STACK='1m'
 
 #logger prefs
 
@@ -101,6 +163,13 @@ LOG_DIR="/var/log/pages/"
 LOG_FILE_NAME="erm"
 LOG_LOGGER = "pages_logger"
 LOG_ROTATING = False
+
+#LinkedIn connector settings
+
+LINKEDIN_OAUTH_CONSUMER_KEY = ''
+LINKEDIN_OAUTH_CONSUMER_SECRET = ''
+LINKEDIN_OAUTH_RETURN_URL="http://www.example.com"
+LINKEDIN_OAUTH_MODE="authorize" #accepted values are "authorize" and "authenticate" see http://developer.linkedin.com/docs/DOC-1008#2_Redirect_the_User_to_our_Authorization_Server
 
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (

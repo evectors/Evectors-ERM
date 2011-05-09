@@ -6,12 +6,13 @@ import unicodedata
 import hashlib
 
 import urllib, urllib2
-import urlparse
+import httplib
 import uuid
 
 import cjson
 import settings
 
+from django.db import IntegrityError
 from erm.datamanager.connectors.simple import *
 from erm.settings import *
 from erm.lib.api import ApiError, ERROR_CODES
@@ -19,7 +20,14 @@ from django.utils.encoding import smart_str, smart_unicode
 
 from erm.core.models import Entity
 
+from erm.core.entity_manager import get_entity, set_entity, add_entity
+
 from erm.lib.logger import Logger
+
+from erm.datamanager.connectors.lib.oauth import Oauth2WebFlow
+
+from urlparse import urlparse
+from erm.lib.misc_utils import string_to_slug, microtime_slug
 
 INIT_STATEMENTS = ("SET NAMES UTF8", 
                    "SET AUTOCOMMIT = 0", 
@@ -67,84 +75,82 @@ ERROR_CODES["3911"]="facebook connector: Entity record not deleted"
 #=====================get_record=====================#
 ERROR_CODES["3920"]="facebook connector: Not null entity id is required" 
 ERROR_CODES["3921"]="facebook connector: Entity record missing" 
+ERROR_CODES["3922"]="facebook connector: an Entity with the same facebook id already exist" 
+ERROR_CODES["3923"]="facebook connector: database error" 
+ERROR_CODES["3925"]="facebook connector error" 
 
-FB_FIELDS_MAP=dict()
-FB_FIELDS_MAP["uid"] = "integer"
-FB_FIELDS_MAP["first_name"] = "string"
-FB_FIELDS_MAP["last_name"] = "string"
-FB_FIELDS_MAP["name"] = "string"
-FB_FIELDS_MAP["pic_small"] = "image"
-FB_FIELDS_MAP["pic_big"] = "image"
-FB_FIELDS_MAP["pic_square"] = "image"
-FB_FIELDS_MAP["pic"] = "image"
-FB_FIELDS_MAP["affiliations"] = "raw_text"
-FB_FIELDS_MAP["profile_update_time"] = "datetime"
-FB_FIELDS_MAP["timezone"] = "short_string"
-FB_FIELDS_MAP["religion"] = "string"
-FB_FIELDS_MAP["birthday"] = "string"
-FB_FIELDS_MAP["birthday_date"] = "datetime"
-FB_FIELDS_MAP["sex"] = "short_string"
-FB_FIELDS_MAP["hometown_location"] = "raw_text"
-FB_FIELDS_MAP["meeting_sex"] = "raw_text"
-FB_FIELDS_MAP["meeting_for"] = "raw_text"
-FB_FIELDS_MAP["relationship_status"] = "string"
-FB_FIELDS_MAP["significant_other_id"] = "integer"
-FB_FIELDS_MAP["political"] = "string"
-FB_FIELDS_MAP["current_location"] = "raw_text"
-FB_FIELDS_MAP["activities"] = "string"
-FB_FIELDS_MAP["interests"] = "string"
-FB_FIELDS_MAP["is_app_user"] = "boolean"
-FB_FIELDS_MAP["music"] = "long_text"
-FB_FIELDS_MAP["tv"] = "long_text"
-FB_FIELDS_MAP["movies"] = "long_text"
-FB_FIELDS_MAP["books"] = "long_text"
-FB_FIELDS_MAP["quotes"] = "long_text"
-FB_FIELDS_MAP["about_me"] = "long_text"
-FB_FIELDS_MAP["hs_info"] = "raw_text"
-FB_FIELDS_MAP["education_history"] = "raw_text"
-FB_FIELDS_MAP["work_history"] = "raw_text"
-FB_FIELDS_MAP["notes_count"] = "integer"
-FB_FIELDS_MAP["wall_count"] = "integer"
-FB_FIELDS_MAP["status"] = "string"
-FB_FIELDS_MAP["online_presence"] = "string"
-FB_FIELDS_MAP["locale"] = "string"
-FB_FIELDS_MAP["proxied_email"] = "string"
-FB_FIELDS_MAP["profile_url"] = "string"
-FB_FIELDS_MAP["email_hashes"] = "raw_text"
-FB_FIELDS_MAP["pic_small_with_logo"] = "image"
-FB_FIELDS_MAP["pic_big_with_logo"] = "image"
-FB_FIELDS_MAP["pic_square_with_logo"] = "image"
-FB_FIELDS_MAP["pic_with_logo"] = "image"
-FB_FIELDS_MAP["allowed_restrictions"] = "string"
-FB_FIELDS_MAP["verified"] = "string"
-FB_FIELDS_MAP["profile_blurb"] = "string"
-FB_FIELDS_MAP["family"] = "raw_text"
-FB_FIELDS_MAP["username"] = "string"
-FB_FIELDS_MAP["website"] = "string"
-FB_FIELDS_MAP["is_blocked"] = "boolean"
+#=====================virtual attribute fields definition
+USER_ATTRIBUTES=dict()
+USER_ATTRIBUTES["id"] = "raw_text"
+USER_ATTRIBUTES["first_name"] = "raw_text"
+USER_ATTRIBUTES["last_name"] = "raw_text"
+USER_ATTRIBUTES["name"] = "raw_text"
+USER_ATTRIBUTES["link"] = "raw_text"
+USER_ATTRIBUTES["about"] = "raw_text"
+USER_ATTRIBUTES["birthday"] = "raw_text"
+USER_ATTRIBUTES["work"] = "raw_text"
+USER_ATTRIBUTES["education"] = "raw_text"
+USER_ATTRIBUTES["email"] = "raw_text"
+USER_ATTRIBUTES["website"] = "raw_text"
+USER_ATTRIBUTES["hometown"] = "raw_text"
+USER_ATTRIBUTES["location"] = "raw_text"
+USER_ATTRIBUTES["bio"] = "raw_text"
+USER_ATTRIBUTES["quotes"] = "raw_text"
+USER_ATTRIBUTES["gender"] = "raw_text"
+USER_ATTRIBUTES["interested_in"] = "raw_text"
+USER_ATTRIBUTES["meeting_for"] = "raw_text"
+USER_ATTRIBUTES["relationship_status"] = "raw_text"
+USER_ATTRIBUTES["religion"] = "raw_text"
+USER_ATTRIBUTES["political"] = "raw_text"
+USER_ATTRIBUTES["verified"] = "raw_text"
+USER_ATTRIBUTES["significant_other"] = "raw_text"
+USER_ATTRIBUTES["timezone"] = "raw_text"
+USER_ATTRIBUTES["third_party_id"] = "raw_text"
+USER_ATTRIBUTES["last_updated"] = "raw_text"
+USER_ATTRIBUTES["locale"] = "raw_text"
 
-#FQL_GET_FRIENDS_DETAILS="SELECT first_name,last_name,uid,pic,is_app_user FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=%s)"
-#
-#FB_SPECIAL_FIELDS=("friends", "friends_details", "permissions")
+USER_ATTRIBUTES_KEYS=USER_ATTRIBUTES.keys()
+#=====================private attribute fields definition
+CONNECTOR_LOCAL_FIELDS_MAP=dict()
 
-FB_MINIMAL_FIELDS=["affiliations", "first_name", "last_name", "name", "uid", "is_app_user"]
+CONNECTOR_INNER_RECORDS=[{'slug':'access_token', 'kind':'raw_text'}]
 
-FB_NO_SESSION_FIELDS=["uid","first_name","last_name","name","locale","affiliations","pic_square","profile_url", "is_app_user"]
+CONNECTOR_INNER_FIELDS=[item['slug'] for item in CONNECTOR_INNER_RECORDS]
 
-FB_PIC_FIELDS=["pic_big","pic_square","pic","pic_big_with_logo","pic_square_with_logo","pic_small_with_logo","pic_small"]
+USER_CONNECTIONS=dict()
+USER_CONNECTIONS['home'] = "raw_text"
+USER_CONNECTIONS['feed'] = "raw_text"
+USER_CONNECTIONS['tagged'] = "raw_text"
+USER_CONNECTIONS['posts'] = "raw_text"
+USER_CONNECTIONS['picture'] = "raw_text"
+USER_CONNECTIONS['friends'] = "raw_text"
+USER_CONNECTIONS['activities'] = "raw_text"
+USER_CONNECTIONS['interests'] = "raw_text"
+USER_CONNECTIONS['music'] = "raw_text"
+USER_CONNECTIONS['books'] = "raw_text"
+USER_CONNECTIONS['movies'] = "raw_text"
+USER_CONNECTIONS['television'] = "raw_text"
+USER_CONNECTIONS['likes'] = "raw_text"
+USER_CONNECTIONS['photos'] = "raw_text"
+USER_CONNECTIONS['albums'] = "raw_text"
+USER_CONNECTIONS['videos'] = "raw_text"
+USER_CONNECTIONS['groups'] = "raw_text"
+USER_CONNECTIONS['statuses'] = "raw_text"
+USER_CONNECTIONS['links'] = "raw_text"
+USER_CONNECTIONS['notes'] = "raw_text"
+USER_CONNECTIONS['events'] = "raw_text"
+USER_CONNECTIONS['inbox'] = "raw_text"
+USER_CONNECTIONS['outbox'] = "raw_text"
+USER_CONNECTIONS['updates'] = "raw_text"
+USER_CONNECTIONS['accounts'] = "raw_text"
+USER_CONNECTIONS['checkins'] = "raw_text"
+USER_CONNECTIONS['platformrequests'] = "raw_text"
 
-FB_RETURNED_FIELDS=FB_NO_SESSION_FIELDS
+USER_CONNECTIONS_KEYS=USER_CONNECTIONS.keys()
 
-for item in FB_PIC_FIELDS:
-    if not (item in FB_RETURNED_FIELDS):
-        FB_RETURNED_FIELDS.append(item)
-    
-EXTENDED_PERMISSONS=("email","read_stream","publish_stream","offline_access","status_update","photo_upload","create_event","rsvp_event","sms","video_upload","create_note","share_item")
-def json_decode(s):
-    h,d,u=cjson.__version__.split(".")
-    if (int(h)*100+int(d)*10+int(u))<=105:
-        s=s.replace('\/', '/')
-    return cjson.decode(s)
+CONNECTOR_REMOTE_FIELDS=CONNECTOR_LOCAL_FIELDS_MAP.keys() + USER_CONNECTIONS.keys()
+
+#=====================connector
 
 class CustomConnector(SimpleDbConnector):
     
@@ -153,9 +159,19 @@ class CustomConnector(SimpleDbConnector):
         super(CustomConnector, self).__init__(object_name, fl_create_table=False, fields_desc=None)
         threshold=getattr(settings, "FB_CONNECTOR_LOG_THRESHOLD", getattr(settings, "LOG_THRESHOLD","NOTSET"))
         logfile=getattr(settings, "FB_CONNECTOR_LOG_FILENAME", getattr(settings, "LOG_FILE_NAME", "generic_log"))
-        #self.logger.warning("%s - %s" % (threshold,logfile))
-        self.logger=Logger(threshold, logfile, logger_name='facebookconnector')
-        
+        #self.logger=Logger(threshold, logfile, logger_name='facebookconnector')
+        self.empty_field_descriptor={'status': u'A', 
+                'kind': u'', 
+                'unique': False, 
+                'name': u'', 
+                'searchable': False, 
+                'default': u'', 
+                'editable': False, 
+                'is_key': False, 
+                'slug': u'test', 
+                'blank': True, 
+                'null': True}
+
     def do_query(self, query):
         try:
             self.cursor.execute(query)
@@ -166,179 +182,114 @@ class CustomConnector(SimpleDbConnector):
             raise Exception(err)
     
     def get_default_attributes(self):
-        return [{"slug":key, "kind":FB_FIELDS_MAP[key]} for key in FB_RETURNED_FIELDS]
+        return [{"slug":key, "kind":value} for key,value in CONNECTOR_LOCAL_FIELDS_MAP.items()]
 
-    def session_key(self, entity=None, entity_id=None):
-        key=None
-        if not entity and entity_id:
-            try:
-                entity=Entity.objects.get(id=entity_id)
-            except Exception, err:
-                pass
-        self.logger.warning("%s, %s, %s" % (entity.slug, entity.password, entity.custom_date))
-        if entity and \
-            entity.password and \
-            ((not entity.custom_date) or time.mktime(entity.custom_date.timetuple())==0 or entity.custom_date>datetime.datetime.now()):
-            key=entity.password
-        return key
-           
-    def signature(self, args):
-        parts = ["%s=%s" % (n, args[n]) for n in sorted(args.keys())]
-        body = "".join(parts) + FACEBOOK_CONNECTOR_SECRET_KEY
-        if isinstance(body, unicode): 
-            body = body.encode("utf-8")
-        return hashlib.md5(body).hexdigest()
+    def get_remote_attributes(self):
+        _attributes=[{"slug":"dummy", "kind":"raw_text"}]
+        for _map in (USER_ATTRIBUTES, USER_CONNECTIONS):
+            for key,value in _map.items():
+                _attributes.append({"slug":key, "kind":value})
+        return _attributes
 
+    def merge_fields(self, fields):
+        for _field in CONNECTOR_INNER_RECORDS:
+            if not fields.has_key(_field['slug']):
+                _complete_field=self.empty_field_descriptor
+                _complete_field.update(_field)
+                fields[_field['slug']]=_complete_field
+        return fields
+    
     def create_table(self, fields):
-        if not fields.has_key('cache_refresh_time'):
-            fields['cache_refresh_time']={'slug':'cache_refresh_time', 'kind':'datetime'}
-        super(CustomConnector, self).create_table(fields)
+        super(CustomConnector, self).create_table(self.merge_fields(fields))
         
     def update_fields(self, fields):
-        if not fields.has_key('cache_refresh_time'):
-            fields['cache_refresh_time']={'slug':'cache_refresh_time', 'kind':'datetime'}
-        super(CustomConnector, self).update_fields(fields)
-        
-    def add_record(self, entity_id, attributes):
-        '''Adding a record in this context means IMO:
-            -add the record to the db table
-            -connect to FaceBook
-            -Fetch user info
-            -Populate the record
-            -update the cache_refresh_time field'''
-        inner_attributes={"cache_refresh_time":datetime.datetime.now()}
-        super(CustomConnector, self).add_record(entity_id, inner_attributes)
-        #attributes=self.get_record(entity_id, [item['slug'] for item in self.get_default_attributes()])
-                    
-    def fb_get(self, args, method, fl_decode=True):
-        if not method.startswith("facebook."):
-            method = "facebook." + method
-        args["api_key"] = FACEBOOK_CONNECTOR_API_KEY
-        args["v"] = "1.0"
-        args["method"] = method
-        args["call_id"] = str(long(time.time() * 1e6))
-        args["format"] = "json"
-        args["sig"] = self.signature(args)
-        url = "http://api.facebook.com/restserver.php?" + \
-            urllib.urlencode(args)
-        self.logger.warning("url: %s" % url)
-        req = urllib2.Request(url)
-        response = urllib2.urlopen(req)
-        response_text=response.read()
-        self.logger.warning("response: %s" % response_text)
-        json_response=json_decode(response_text)
-
-        fl_error=isinstance(json_response, dict) and json_response.has_key('error_code') and json_response.get('error_code')
-        
-        if not fl_error:
-            if fl_decode:
-                return json_response
-            else:
-                return response_text
-        else:
-            raise ApiError(json_response.get('error_msg'), 3101, json_response.get('error_code')) 
-            
+        super(CustomConnector, self).update_fields(self.merge_fields(fields))
+                            
     def get_record(self, entity_id, fields_list, cache_life=0, fl_set_cache_date=False):
         try:
             if entity_id!="":
-                if len(fields_list):
-                    fl_cache=False
-                    if cache_life>0:
-                        self.cursor.execute(QUERY_GET_RECORD % ('cache_refresh_time', DM_DATABASE_NAME, self.object_name, "entity_id=%s" % entity_id))
-                        fl_cache = self.cursor.fetchall()[0][0]+datetime.timedelta(seconds=cache_life)>datetime.datetime.now()
-                    if not fl_cache:
-                        _entity=Entity.objects.get(id=entity_id)
-                        uid=_entity.slug
-                        _session_key=self.session_key(_entity)
-                        attributes=dict()
-                        friends_att="friends" in fields_list
-                        friends_details_att="friends_details" in fields_list
-                        fb_attrs=list()
-                        local_attrs=list()
-                        
-                        if _session_key:
-                            accessible_fields=FB_FIELDS_MAP.keys()
-                        else:
-                            accessible_fields=FB_RETURNED_FIELDS
-                        for key in fields_list:
-                            if (key in accessible_fields):
-                                fb_attrs.append(key)
-                            else:
-                                if (not FB_FIELDS_MAP.has_key(key)) and key!="cache_refresh_time":
-                                    local_attrs.append(key)
-                        
-                        if len(fb_attrs):
-                            args={"uids": uid, 'fields':",".join(fb_attrs)}
-                            if _session_key:
-                                args['session_key']=_session_key
-                            response=self.fb_get(args, "users.getInfo")
-                            for key, value in response[0].items():
-                                attributes[key]=value
-                            local_db_attrs=attributes
-                            if len(fb_attrs)==len(FB_RETURNED_FIELDS) or fl_set_cache_date:
-                                local_db_attrs['cache_refresh_time']=datetime.datetime.now()
-                            super(CustomConnector, self).update_record(entity_id, local_db_attrs)
-                        if len(local_attrs):
-                            for key, value in super(CustomConnector, self).get_record(entity_id, local_attrs):
-                                attributes[key]=value
+                user_attrs=list()
+                connection_attrs=dict()
+                result = dict()
+                get_connections="dummy" not in fields_list
+                for field in fields_list:
+                    if field in USER_ATTRIBUTES_KEYS:
+                        user_attrs.append(field)
+                    elif field in USER_CONNECTIONS_KEYS and get_connections:
+                        try:
+                            connection_attrs[field]=self.graph(entity_id, {"object":field})
+                        except Exception, err:
+                            connection_attrs[field]=err
 
-                        return attributes    
-                    else:
-                        return super(CustomConnector, self).get_record(entity_id, fields_list)
-#                        if self.record_exists({"entity_id":entity_id}):
-#                            self.cursor.execute(QUERY_GET_RECORD % ("`,`".join(fields_list), DM_DATABASE_NAME, self.object_name, "entity_id=%s" % entity_id))
-#                            record=[dict(zip(fields_list, row)) for row in self.cursor.fetchall()]
-#                            #record=dict(zip(fields_list, row) for row in self.cursor.fetchall())
-#                            return record[0]
-#                        else:
-#                           raise ApiError(None, 3921, entity_id)
-                else:
-                    return dict()
+                debug_dict=dict()
+                
+#                 debug_dict["user_attrs"]=user_attrs
+#                 debug_dict["fields_list"]=fields_list
+#                 debug_dict["connection_attrs"]=connection_attrs
+# 
+                if len(user_attrs)>0 or len(fields_list)==0:
+                    try:
+                        result = self.graph(entity_id, {})
+                    except Exception, err:
+                        result[err]=err
+
+                if len(user_attrs):
+                    result=dict((field, result.get(field)) for field in fields_list)
+                
+                result.update(connection_attrs)
+                result.update(debug_dict)
+                
+                return result
+                
             else:
                raise ApiError(None, 3920)
         except Exception, err:
            raise ApiError(None, 3101, err)
 
-    def get_permissions(self, entity_id, params={"permissions_list":EXTENDED_PERMISSONS}):
-        uid=Entity.objects.get(id=entity_id).slug
-        permissions_list=params.get('permissions_list',EXTENDED_PERMISSONS)
-        permissions=dict()
-        for permission_key in permissions_list:
-            args={"uid": uid, "ext_perm": permission_key}
-            permissions[permission_key]=self.fb_get(args, "users.hasAppPermission")
-        return permissions
-    
-    def get_friends(self, entity_id, params={"details":False, "fields":[]}):
-        uid=Entity.objects.get(id=entity_id).slug
-        args={"uid": uid}
-        details=params.get('details',0)
-        friends=self.fb_get(args, "friends.get", not details)
-                        
-        if details:
-            fields=params.get('fields', FB_MINIMAL_FIELDS)
-            if fields==[]:
-                fields=FB_MINIMAL_FIELDS
-            args={"uids": friends, "fields":",".join(fields)}
-            friends=self.fb_get(args, "users.getInfo")
-        return friends
-        
-    def execute(self, entity_id, params):
-        method=params["method"]
-        args=params.get("args", dict())
-        if ((not args.has_key("uid")) or args["uid"]=="") or ((not args.has_key("session_key")) or args["session_key"]==""):
-            _entity=Entity.objects.get(id=entity_id)
-            if (not args.has_key("uid")) or args["uid"]=="":
-                args["uid"]=_entity.slug
-            if (not args.has_key("session_key")) or args["session_key"]=="":
-                _session_key=self.session_key(_entity)
-                if _session_key:
-                    args["session_key"]=_session_key
+    def graph(self, entity_id, params, access_token=None):
+        if entity_id is not None or access_token is not None:
+            result=dict()
+            if access_token is None:
+                access_token=super(CustomConnector, self).get_record(entity_id, ["access_token"])["access_token"]
+            graph_api=params.get('object', 'me')
+            endpoint='graph.facebook.com'
+            if graph_api!='me':
+                graph_api="me/%s" % graph_api
+            
+            _method = params.get('method', 'GET')
+            if _method == 'GET':
+                url = '/%s?access_token=%s' % (graph_api, access_token)
+                connection = httplib.HTTPSConnection(endpoint)
+                connection.request('GET', url)
+                response = connection.getresponse()
+                
+                if response is None:
+                    self.error = "No HTTP response received."
+                    connection.close()
+                    return None
+            
+                if graph_api=='me/picture' and response.status in (301,302,):
+                    result = response.getheader('location', '')
                 else:
-                    if args.has_key("session_key"):
-                        del args["session_key"]
-        result= self.fb_get(args, method)
-        return result
-    
+                    response = response.read()
+                    result=cjson.decode(response)
+
+                connection.close()
+
+            elif _method == 'POST':
+                url = 'https://%s/%s' % (endpoint, graph_api)
+                api_params = params.get('api_params',dict())
+                api_params['access_token']=access_token
+                data = urllib.urlencode(api_params)
+                req = urllib2.Request(url, data)
+                response = urllib2.urlopen(req)
+                response = response.read()
+                result=cjson.decode(response)
+
+            return result
+        else:
+            raise ApiError(None, 3900)        
+
     def update_record(self, entity_id, attributes, query=QUERY_UPDATE_RECORD):
         try:
             if entity_id!="":
@@ -347,19 +298,18 @@ class CustomConnector(SimpleDbConnector):
                     set_list=list()
                     db_attributes=dict()
                     for key, value in attributes.items():
-                        if key in FB_FIELDS_MAP.keys():
-                            if key=="status":
-                                if type(value) is dict:
-                                    args={"uid": uid}
-                                    for key,key_value in value.items():
-                                        if type(key_value) is dict or type(key_value) is list:
-                                            key_value=cjson.encode(key_value)
-                                        args[key]=key_value
-                                else:
-                                    args={"uid": uid, "message":value}
-                                result=self.fb_get(args, "stream.publish")
+                        if key in ("status", "message", "post"):
+                            if isinstance(value, dict):
+                                args = value
+                            else:
+                                args={"message":value}
+                            self.graph(entity_id, {"object":"feed", 
+                                                   "method":"POST", 
+                                                   "api_params":args})
+                        elif key in USER_ATTRIBUTES_KEYS:
+                            pass
                         else:
-                            if not FB_FIELDS_MAP.has_key(key):
+                            if not USER_ATTRIBUTES.has_key(key):
                                 db_attributes[key]=value
                     if len(db_attributes):
                         super(CustomConnector, self).update_record(entity_id, db_attributes, query)
@@ -370,3 +320,81 @@ class CustomConnector(SimpleDbConnector):
                raise ApiError(None, 3900)
         except Exception, err:
             raise ApiError(None, 3101, err)
+
+#=============================OAuth authentication
+
+    def get_oauth_url(self, entity_id=None, params={}):
+        next_url=params.get('next_url', settings.FACEBOOK_CONNECTOR_REDIRECT_URI)
+        decode = params.get('decode', False)
+        if decode:
+            next_url=urllib.unquote(next_url)
+        client=Oauth2WebFlow('graph.facebook.com', 
+                                        settings.FACEBOOK_CONNECTOR_API_KEY,
+                                        settings.FACEBOOK_CONNECTOR_SECRET_KEY, 
+                                        next_url)
+        return client.getAuthorizeURL(params.get('scope', ','.join(FACEBOOK_PERMISSIONS)))
+ 
+    def oauth_validate_token(self, entity_id=None, params={}):
+        next_url=params.get('next_url', settings.FACEBOOK_CONNECTOR_REDIRECT_URI)
+        decode = params.get('decode', False)
+        if decode:
+            next_url=urllib.unquote(next_url)
+        client=Oauth2WebFlow('graph.facebook.com', 
+                                        settings.FACEBOOK_CONNECTOR_API_KEY,
+                                        settings.FACEBOOK_CONNECTOR_SECRET_KEY, 
+                                        next_url)
+        try:
+            tokenized_url = params.get('tokenized_url')
+            if tokenized_url and tokenized_url!="":
+                decode = params.get('decode', False)
+        
+                if decode:
+                    tokenized_url=urllib.unquote(tokenized_url)
+                parsed=urlparse(tokenized_url)
+                parsed_params=dict([item.split('=')[0], item.split('=')[1]] for item in parsed.query.split('&'))   
+                code = urllib.unquote(parsed_params.get('code'))
+                access_token = client.getAccessToken(code)
+                
+                facebook_params=None
+                if access_token:
+                    entity_type=self.object_name.split("_")[-1]
+                    if entity_id is None:
+                        facebook_params=self.graph(None, {}, access_token)
+                        remote_id = "%s" % facebook_params['id']
+                        entity_name="%s %s" % (facebook_params.get('first_name'), facebook_params.get('last_name'))
+                        entity_slug=microtime_slug()
+                        try:
+                            my_entity=add_entity({"slug":entity_slug, 
+                                                  "name":entity_name, 
+                                                  "type":entity_type,
+                                                  "remote_id":remote_id,
+                                                  "attributes":{"access_token": access_token}
+                                                  })
+                            entity_id=my_entity.id
+                        except Exception, err:
+                            try:
+                                my_entity=get_entity({"remote_id":remote_id, "type":entity_type})[0]
+                                entity_id=my_entity.id
+                                super(CustomConnector, self).update_record(entity_id, {"access_token": access_token})
+                            except Exception, err:
+                                raise ApiError(None, 3923, "----->%s - %s" % (Exception, err))
+                    else:
+                        my_entity=get_entity({"id":str(entity_id), "type":entity_type})[0]
+                        super(CustomConnector, self).update_record(entity_id, {"access_token": access_token})
+                else:
+                    raise ApiError(None, 3925)
+                
+                if facebook_params is None:
+                    facebook_params=self.graph(None, {}, access_token)
+                
+                result=my_entity.to_dict(False, "", "")
+                result['attributes']=facebook_params
+                result['attributes']['email']=facebook_params.get('email', None)
+                return result
+            else:
+                raise ApiError(None, 3925)
+        except Exception, err:
+            reauthenticate=self.get_oauth_url()
+            raise ApiError(None, "%s" % reauthenticate, err)
+        else:
+            raise ApiError(None, 3900)

@@ -17,6 +17,8 @@ import cjson
 
 from urllib import unquote
 
+from erm.core.search_engine import SearchEngine
+
 #ERROR_CODES=dict()
 #=====================generic or common errors=====================#
 ERROR_CODES["12100"]="core model generic error: ?" 
@@ -24,6 +26,8 @@ ERROR_CODES["12100"]="core model generic error: ?"
 ERROR_CODES["12200"]="set tags: invalid slug" 
 ERROR_CODES["12300"]="set tags: duplicate name with new slugs" 
 ERROR_CODES["12400"]="set tags: either name or slug is required to define a tag" 
+ERROR_CODES["12500"]="values error" 
+
 #=====================init=====================#
 
 GENERIC_STATUS = (
@@ -39,8 +43,16 @@ RELATIONSHIP_TYPE_STATUS=GENERIC_STATUS
 RELATIONSHIP_STATUS=GENERIC_STATUS
 UNION_STATUS=GENERIC_STATUS
 
-def set_object_tags(obj, tags_list, object_tag_model, object_tag_schema_model, object_tag_correlation_model, object_tag_correlation_table_name, object_schemed_tag_model, type_attr='type'):
-    
+def set_object_tags(obj, 
+                    tags_list, 
+                    object_tag_model, 
+                    object_tag_schema_model, 
+                    object_tag_correlation_model, 
+                    object_tag_correlation_table_name, 
+                    object_schemed_tag_model, 
+                    type_attr='type'):
+
+    try:    
         tagcloud_tags=list()
         
         build_key = lambda slug, schema: "%s++%s" % (slug, schema)
@@ -62,12 +74,16 @@ def set_object_tags(obj, tags_list, object_tag_model, object_tag_schema_model, o
                 for item in tags_list:
                     fl_skip_tag=False
                     
-                    #if no slug is provided extract slug from name
-                    name_value=""
-                    slug_value=""
                     tag_negated=False
-                    if (not item.has_key('slug')):
-                        if item.has_key('name'):
+                    name_value=item.get('name',"")
+                    if name_value!="" and name_value[0]=="!":
+                        tag_negated=True
+                        name_value=name_value[1:]
+
+                    #if no slug is provided extract slug from name
+                    slug_value=""
+                    if (not item.has_key('slug')) or item['slug']=="":
+                        if item.has_key('name') and item['name'] and item['name']!="":
                             name_negated=""
                             name_value=item['name']
                             if name_value[0]=="!":
@@ -75,9 +91,10 @@ def set_object_tags(obj, tags_list, object_tag_model, object_tag_schema_model, o
                                 name_value=name_value[1:]
                             slug_value =string_to_slug(name_value)
                         else:
-                            raise ApiError(None, 12400)
+                            pass
+                            #raise ApiError(None, 12400)
                     else: 
-                        if item.has_key('slug'):
+                        if item.has_key('slug') and item['slug']!="":
                             slug_value=item['slug']
                             if slug_value[0]=="!":
                                 tag_negated=True
@@ -92,7 +109,7 @@ def set_object_tags(obj, tags_list, object_tag_model, object_tag_schema_model, o
                                 tag_obj=object_tag_model.objects.filter(name=name_value)
                                 if len(tag_obj)>0 and tag_obj[0].slug!=slug_value:
                                     #this name has already been mapped to another slug, raise an error
-                                    raise ApiError(None, 12300, "%s: %s --> %s" % (name, slug, tag_obj[0].slug))
+                                    raise ApiError(None, 12300, "%s: %s --> %s" % (name_value, slug, tag_obj[0].slug))
                         else:
                             #bad slug, raise an error
                             raise ApiError(None, 12200, "%s --> %s" % (slug, string_to_slug(slug)))
@@ -141,9 +158,14 @@ def set_object_tags(obj, tags_list, object_tag_model, object_tag_schema_model, o
                     
                     #Add or update passed tags
                     for tag_key, tag in tags_to_update.items(): 
-                        tag_obj, tag_created=object_tag_model.objects.get_or_create(slug=tag['slug'],
-                                                                 name=tag['name'])
-    
+                        try:
+                            tag_obj = object_tag_model.objects.get(slug=tag['slug'])                        
+                        except ObjectDoesNotExist:
+                            tag_obj=object_tag_model(slug = tag['slug'], name = tag['name'])
+                            tag_obj.save()
+                        if tag_obj.name=="" or tag_obj.name==None:
+                            tag_obj.name = tag['name']
+                            tag_obj.save()
                         schema_obj=None
                         if tag.has_key('schema') and tag['schema'] and tag['schema']!="":
                             schema_obj, schema_created=object_tag_schema_model.objects.get_or_create(slug=tag['schema'])
@@ -163,7 +185,11 @@ def set_object_tags(obj, tags_list, object_tag_model, object_tag_schema_model, o
                         if corr_weight!="+0":
                             correlation.update_weight(tag.get('weight', '+0'))
                             correlation.save()    
-                
+                        
+                        if correlation.object_tag_name!=tag.get('name'):
+                            correlation.object_tag_name = tag.get('name')
+                            correlation.save()    
+
                 if len(tags_to_delete):
                     for tag_key, tag_value in tags_to_delete.items():
                         try:
@@ -191,6 +217,8 @@ def set_object_tags(obj, tags_list, object_tag_model, object_tag_schema_model, o
                     updated_correlations=object_tag_correlation_model.objects.filter(object=obj)#.values('object_tag', 'object_tag_schema', 'object_tag_schema__slug')
                     for tag_correlation in updated_correlations:
                         try:
+                            tag_correlation_schema_slug=getattr(tag_correlation.object_tag_schema, 'schema', None)
+
                             schemedtag, schemedtag_created = object_schemed_tag_model.objects.get_or_create(object_type=getattr(obj, type_attr),
                                                                                     tag=tag_correlation.object_tag, 
                                                                                     schema=tag_correlation.object_tag_schema
@@ -207,13 +235,16 @@ def set_object_tags(obj, tags_list, object_tag_model, object_tag_schema_model, o
                             
                             if len(tags_added):
                                 for tag_key, tag_value in tags_added.items():
-                                    if tag_value['tag_obj'].slug!=tag_correlation.object_tag.slug or tag_value['schema_obj'].id!=tag_correlation.object_tag_schema.id:
+                                    tag_value_schema_slug=getattr(tag_value['schema_obj'], 'slug', None)
+
+                                    if tag_value['tag_obj'].slug!=tag_correlation.object_tag.slug or \
+                                        (tag_correlation_schema_slug != tag_value_schema_slug):
                                         if tag_key in related:
                                             related[tag_key]['weight']+=1
                                         else:
                                             related[tag_key]={'weight':1,
                                                               'tag':tag_value['tag_obj'].slug,
-                                                              'schema':tag_value['schema_obj'].slug}
+                                                              'schema':tag_value_schema_slug}
                             schemedtag.related=cjson.encode(related)
                             schemedtag.save()
                             
@@ -224,20 +255,25 @@ def set_object_tags(obj, tags_list, object_tag_model, object_tag_schema_model, o
                         for tag_key, tag_value in tags_added.items():
                             tag_obj=tag_value['tag_obj']
                             schema_obj=tag_value['schema_obj']
+                            tag_value_schema_slug=getattr(tag_value['schema_obj'], 'slug', None)
+
                             schemedtag, schemedtag_created=object_schemed_tag_model.objects.get_or_create(object_type=getattr(obj, type_attr),
                                                                                         tag=tag_obj, 
                                                                                         schema=schema_obj
                                                                                         )
                             related=dict()
                             for tag_correlation in updated_correlations:
-                                tag_key=build_key(tag_correlation.object_tag.slug, tag_correlation.object_tag_schema.slug)
-                                if tag_value['tag_obj'].slug!=tag_correlation.object_tag.slug or tag_value['schema_obj'].id!=tag_correlation.object_tag_schema.id:
+                                tag_correlation_schema_slug=getattr(tag_correlation.object_tag_schema, 'schema', None)
+
+                                tag_key=build_key(tag_correlation.object_tag.slug, tag_correlation_schema_slug)
+                                if tag_value['tag_obj'].slug!=tag_correlation.object_tag.slug or \
+                                        (tag_value_schema_slug!=tag_correlation_schema_slug):
                                     if tag_key in related:
                                         related[tag_key]['weight']+=1
                                     else:
                                         related[tag_key]={'weight':1,
                                                           'tag':tag_correlation.object_tag.slug,
-                                                          'schema':tag_correlation.object_tag_schema.slug}
+                                                          'schema':tag_correlation_schema_slug}
                             
                             schemedtag.related=cjson.encode(related)
                             schemedtag.items_count=schemedtag.items_count+1
@@ -286,6 +322,8 @@ def set_object_tags(obj, tags_list, object_tag_model, object_tag_schema_model, o
 
                 #raise ApiError(None,100, "==>%s" % clouds_attributes)    
                 obj.type.repository.update_record(self.id, clouds_attributes)
+    except Exception,err:
+        raise ApiError(None, 100, "%s: %s" % (err, tags_list))
 
 
 class EntityUnion (models.Model):
@@ -346,7 +384,7 @@ class EntityTagSchema(models.Model):
                 'status': self.status}
 
 class EntityTag (models.Model):
-    name = models.CharField(max_length=255, unique=True, null=False, blank=False)
+    name = models.CharField(max_length=255, null=False, blank=False)
     slug = models.CharField(max_length=255, unique=True, null=False, blank=False, primary_key=True)
     status = models.CharField(max_length=1, choices=TAG_STATUS, default='A')
     kind = models.CharField(max_length=10, null=True, blank=True, editable=False)#internal use, to mark tags when, for example, manually or programmatically set, and not extracted
@@ -387,7 +425,6 @@ class EntityTag (models.Model):
             d['relateds']=relateds
         return d
     
-
 class EntityType (models.Model):
     slug = models.CharField(max_length=255, unique=True, blank=False, null=False)
     name = models.CharField(max_length=255, blank=True, null=True)
@@ -473,6 +510,7 @@ class Entity(models.Model):
     entity_union = models.ForeignKey(EntityUnion, null=True, blank=True, default=None)     
     longitude = models.FloatField(blank=True, default=None, null=True)
     latitude = models.FloatField(blank=True, default=None, null=True)
+    remote_id = models.CharField(max_length=128, null=True, blank=True)
 
     def properties(self):
         return {'id':'integer', 
@@ -500,6 +538,7 @@ class Entity(models.Model):
             type=self.type.slug,
             type_id=self.type.id,
             uri=self.uri, 
+            remote_id=self.remote_id, 
         )
         
         d['creation_date']=time.mktime(self.creation_date.timetuple())
@@ -556,7 +595,7 @@ class Entity(models.Model):
 
             if rels and rels!="":
                 to_flag=True
-                from_flag=False
+                from_flag=True
                 if type(rels) is bool:
                     to_flag=True
                     from_flag=True
@@ -575,24 +614,69 @@ class Entity(models.Model):
                             to_flag=False
                             from_flag=True
                             rels=rels[1:]
+                
+                rels_separator=""
+                the_other_entity=""
+                the_other_entity_type=""
+                if "<" in rels:
+                    to_flag=False
+                    from_flag=True
+                    rels_separator="<"
+                elif ">" in rels:
+                    to_flag=True
+                    from_flag=False
+                    rels_separator=">"
+                elif "|" in rels:
+                    to_flag=True
+                    from_flag=True
+                    rels_separator="|"
+                
+                if rels_separator!="":
+                    rels, the_other_entity = rels.split(rels_separator)
                     
+                    if the_other_entity.startswith(">"):
+                        to_flag=True
+                        the_other_entity=the_other_entity[1:]
+                        
+                    if "{" in the_other_entity:
+                        the_other_entity, the_other_entity_type = the_other_entity.split("{")
+                        the_other_entity_type = the_other_entity_type [:-1]
                 try:
                     rel_objects=Relationship.objects.all()
                     if rels!="*":
-                        rel_objects=rel_objects.filter(rel_type__slug=rels)
+                        if "," in rels:
+                            rel_objects=rel_objects.filter(rel_type__slug__in=rels.split(','))
+                        else:
+                            rel_objects=rel_objects.filter(rel_type__slug=rels)
+
                     if to_flag:
                         rel_objects_to=rel_objects.filter(entity_from__type=self.type.id)
-                        rel_objects_to=rel_objects.filter(entity_from__slug=self.slug)
+                        rel_objects_to=rel_objects_to.filter(entity_from__slug=self.slug)
+                        if the_other_entity!="":
+                            if "," in the_other_entity:
+                                rel_objects_to=rel_objects_to.filter(entity_to__slug__in=the_other_entity.split(','))
+                            else:
+                                rel_objects_to=rel_objects_to.filter(entity_to__slug=the_other_entity)
+                            if the_other_entity_type!="":
+                                rel_objects_to=rel_objects_to.filter(entity_to__type__slug=the_other_entity_type)
+
                         d['relationships']=[rel_object.to_dict() for rel_object in rel_objects_to]
                     
-                    #rel_objects=Relationship.objects.all()
                     if from_flag:
                         rel_objects=rel_objects.filter(entity_to__type=self.type.id)
                         rel_objects=rel_objects.filter(entity_to__slug=self.slug)
+                        if the_other_entity!="":
+                            if "," in the_other_entity:
+                                rel_objects=rel_objects.filter(entity_from__slug__in=the_other_entity.split(','))
+                            else:
+                                rel_objects=rel_objects.filter(entity_from__slug=the_other_entity)
+                            if the_other_entity_type!="":
+                                rel_objects=rel_objects.filter(entity_from__type__slug=the_other_entity_type)
                         d['reverse_relationships']=[rel_object.to_dict() for rel_object in rel_objects]
+                    
+                    
                 except Exception, err:
                     d['rel_err']=err
-                
 
             d['creation_date_v']=self.creation_date.ctime()
             d['modification_date_v']=self.modification_date.ctime()
@@ -603,6 +687,7 @@ class Entity(models.Model):
  
             d['longitude']=self.longitude
             d['latitude']=self.latitude
+            d['status']=self.status
                                 
         return d
 
@@ -615,17 +700,37 @@ class Entity(models.Model):
         object_tag_correlation_model = EntityTagCorrelation
         object_schemed_tag_model = EntitySchemedTag
         
-        return set_object_tags(self, tags_list, object_tag_model, object_tag_schema_model, object_tag_correlation_model, object_tag_correlation_table_name, object_schemed_tag_model)
+        return set_object_tags(self, 
+                                tags_list, 
+                                object_tag_model, 
+                                object_tag_schema_model, 
+                                object_tag_correlation_model, 
+                                object_tag_correlation_table_name, 
+                                object_schemed_tag_model)
         
+    def delete(self):
+        try:
+            searchengine=SearchEngine(self.type.slug, False)
+            searchengine.delete_entity(self)
+            Logger().debug("Entity removed from search engine (%s:%s)" % (self.slug, self.type.slug))
+        except Exception, err:
+            Logger().error("Error removing entity from search engine index: %s (%s:%s)" % (err, 
+                                                                                           self.slug, 
+                                                                                           self.type.slug))
+
+        super(Entity, self).delete()
+        
+
 
     class Meta:
         verbose_name_plural = "entities"             
-        unique_together = ("slug", "type")
+        unique_together = (("slug", "type"),("remote_id", "type"))
 
 class EntityTagCorrelation (models.Model):
     object = models.ForeignKey(Entity)
     object_type = models.ForeignKey(EntityType, null=False, blank=False)
     object_tag = models.ForeignKey(EntityTag)
+    object_tag_name = models.CharField(max_length=255, null=False, blank=False)
     object_tag_schema = models.ForeignKey(EntityTagSchema, null=True)
     weight=models.IntegerField(blank=True, default=0, null=True)
     
@@ -706,7 +811,7 @@ class RelationshipTagSchema(models.Model):
                 'status': self.status}
 
 class RelationshipTag (models.Model):
-    name = models.CharField(max_length=255, unique=True, null=False, blank=False)
+    name = models.CharField(max_length=255, null=False, blank=False)
     slug = models.CharField(max_length=255, unique=True, null=False, blank=False, primary_key=True)
     status = models.CharField(max_length=1, choices=TAG_STATUS, default='A')
     kind = models.CharField(max_length=10, null=True, blank=True, editable=False)#internal use, to mark tags when, for example, manually or programmatically set, and not extracted
@@ -734,8 +839,7 @@ class RelationshipTag (models.Model):
                 pass
             d['relateds']=relateds
         return d
-    
-   
+      
 class RelationshipType (models.Model):
     slug = models.CharField(max_length=255, unique=True, blank=False, null=False)
     name = models.CharField(max_length=255, blank=True, null=True)
@@ -790,8 +894,7 @@ class RelationshipSchemedTag (models.Model):
                 'schema':self.schema.slug, 
                 'items_count':self.items_count,
                 'relateds':self.relateds}    
-        
-        
+                
 class RelationshipTypeAllowed(models.Model):
     rel_type = models.ForeignKey(RelationshipType, related_name='allowed')
     entity_type_from = models.ForeignKey(EntityType, related_name='entity_type_from')
@@ -864,6 +967,11 @@ class Relationship (models.Model):
             status=self.status
         )
         if not compact:
+            d ['entity_from_name']=self.entity_from.name
+            d ['entity_to_name']=self.entity_to.name
+            d ['entity_from_uri']=self.entity_from.uri
+            d ['entity_to_uri']=self.entity_to.uri
+
             tags_list=list()
             try:
                 correlations=RelationshipTagCorrelation.objects.filter(object=self)
@@ -887,11 +995,11 @@ class Relationship (models.Model):
 
         return set_object_tags(self, tags_list, object_tag_model, object_tag_schema_model, object_tag_correlation_model, object_tag_correlation_table_name, object_schemed_tag_model, 'rel_type')
 
-
 class RelationshipTagCorrelation (models.Model):
     object = models.ForeignKey(Relationship)
     object_type = models.ForeignKey(RelationshipType)
     object_tag = models.ForeignKey(RelationshipTag)
+    object_tag_name = models.CharField(max_length=255, null=False, blank=False)
     object_tag_schema = models.ForeignKey(RelationshipTagSchema, null=True)
     weight=models.IntegerField(blank=True, default=0, null=True)
 
@@ -990,6 +1098,105 @@ class Activity (models.Model):
     class Meta:
         verbose_name_plural = "activity entries" 
 
-#==============================UNIONS====================================#
 
+#==============================SERIES====================================#
+
+def series_get_values(item):
+    item._values=SeriesDict()
+    if item.json_values and item.json_values!="":
+        try:
+            item._values = SeriesDict(cjson.decode(item.json_values))
+        except Exception, err:
+            raise ApiError(None, 10000, "%s" % item.json_values)
+    return item._values
+
+def series_set_values(item, data):
+    if not data:
+        data=SeriesDict()
+    try:
+        item.json_values = cjson.encode(data)
+    except Exception, err:
+        raise ApiError(None, 10000, "%s" % item.json_values)
+
+
+class SeriesToday (models.Model):
+    day = models.DateField(blank=True, default = datetime.date.today, editable=False)
+    name = models.CharField(max_length = 512,null=True,blank=True) 
+    json_values = models.TextField(blank=True, null=True, editable=False, default="{}")
           
+    values = property(series_get_values, series_set_values)
+    
+    def to_dict(self):
+        _dict=dict(name = self.name,
+                   values = self.values.to_sorted_list('value', True),
+                   day = "%s" % self.day
+               )
+        return _dict
+    
+    class Meta:
+        db_table = 'series_today'
+
+class SeriesHistory (models.Model):
+    day = models.DateField(blank=True, default = datetime.date.today, editable=False)
+    name = models.CharField(max_length = 512,null=True,blank=True) 
+    json_values = models.TextField(blank=True, null=True, editable=False, default="{}")
+          
+    values = property(series_get_values, series_set_values)
+
+    def to_dict(self):
+        _dict=dict(name = self.name,
+                   values = self.values.to_sorted_list('value', True),
+                   day = "%s" % self.day
+               )
+        return _dict
+       
+    class Meta:
+        db_table = 'series_history'
+
+class SeriesCurrent (models.Model):
+    day_trimmed = models.DateField(blank=True, default = datetime.date.today, editable=False)
+    length=models.IntegerField(blank=True, default=0, null=True)
+    name = models.CharField(max_length = 512,null=True,blank=True) 
+    json_values = models.TextField(blank=True, null=True, editable=False, default="{}")
+          
+    values = property(series_get_values, series_set_values)
+
+    def to_dict(self):
+        _dict=dict(name = self.name,
+                   values = self.values.to_sorted_list('value', True),
+                   day = "%s" % self.day_trimmed,
+                   length = self.length
+               )
+        return _dict
+
+    def trim(self):
+        _today=datetime.date.today()
+        _lastday=_today-datetime.timedelta(hours=24*(self.length-1))
+        if _lastday>self.day_trimmed:
+            _overflown_series=SeriesHistory.objects.filter(name=self.name,
+                                            day__lt=_lastday,
+                                            day__gte=self.day_trimmed)
+            for _series in _overflown_series:
+                self.values=self.values-_series.values
+            self.day_trimmed=_lastday
+            self.save()
+            
+    class Meta:
+        db_table = 'series_current'
+        
+class SeriesRule (models.Model):
+    name = models.CharField(max_length = 512,null=True,blank=True) 
+    length=models.IntegerField(blank=True, default=0, null=True)
+    creation_date = models.DateTimeField(auto_now_add=True)
+          
+    def to_dict(self):
+        _dict=dict(name = self.name,
+                   creation_date = "%s" % self.creation_date,
+                   length = self.length
+               )
+        return _dict
+    
+    class Meta:
+        db_table = 'series_rule'
+        
+        

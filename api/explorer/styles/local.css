@@ -1,7 +1,7 @@
 /*
 	ERM API Explorer stylesheet
-	version 1.0.3
-	last modified 4/15/2011 by MB
+	version 1.0.4
+	last modified 5/4/2011 by MB
 	Copyright (c) 2011 Evectors Ltd.
 */
 
@@ -125,13 +125,13 @@ DIV.h {
 }
 
 #params DIV.panel DIV.req INPUT {
-	width: 18px;
+	width: 15px;
 }
 
 #params DIV.panel DIV.req SPAN.t {
 	display: block;
 	float: left;
-	width: 140px;
+	width: 150px;
 	text-align: right;
 }
 
@@ -148,17 +148,29 @@ DIV.h {
     size: 10px;
 }
 
+#params DIV.custom {
+	height: 206px;
+}
+
 #params TABLE {
 	border: medium none;
 	border-spacing: 0;
 	width: 100%;
 }
 
+TR.nd {
+	display: none;
+}
+
 TD.c1 {
-	width: 140px;
+	width: 150px;
 	font-family: 'Courier New', Courier, fixe;
 	font-size: 12px;
 	text-align: right;
+}
+
+TD.top {
+	vertical-align: top;
 }
 
 TD INPUT {
@@ -167,6 +179,21 @@ TD INPUT {
 	border: 1px solid lightBlue;
 	font-family: 'Courier New', Courier, fixe;
 	font-size: 12px;
+}
+
+TD TEXTAREA {
+	width: 100%;
+	height: 56px;
+	margin: 0;
+	border: 1px solid lightBlue;
+	padding: 0;
+	font-family: 'Courier New', Courier, fixe;
+	font-size: 12px;
+	overflow: auto;
+}
+
+TD TEXTAREA.custom {
+	height: 200px;
 }
 
 #params DIV.exec {
@@ -183,7 +210,7 @@ TD INPUT {
 	font-size: 12px;
 }
 
-#params DIV.exec A {
+#params DIV.exec A.doc {
 	float: right;
 	display: block;
 	margin: 0 20px 0 0;

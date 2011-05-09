@@ -9,6 +9,10 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.query import EmptyQuerySet
 from django.db import connection, DatabaseError, IntegrityError, transaction
 
+import erm.core.search_engine
+from erm.lib.logger import Logger
+import urllib
+
 def get_erm_tree(params):
     try:
         req_entity_type=None
@@ -188,52 +192,117 @@ def get_entities_rel(params):
 #    except Exception, err:
 #       raise ApiError(None, 11101, err)
 
+def parse_search_tags(tags_string):
+    or_chunks_list=tags_string.split("|")
+    bool_chunks_list=list()
+    for or_chunck in or_chunks_list:
+        found_one=False
+        if or_chunck!="":
+            and_chunks_list=or_chunck.split('&')
+            for and_chunk in and_chunks_list:
+                if and_chunk!="":
+                    tags_split=and_chunk.split("{")
+                    tags=tags_split[0]
+                    schema=len(tags_split)>1 and tags_split[1][:-1] or "*"
+                    single_tags = tags.split(",")
+                            
+                    if not found_one:
+                        bool_chunks_list.append({"slug":single_tags[0], "schema":schema, "mode":"OR"})
+                        found_one=True
+                    else:
+                        bool_chunks_list.append({"slug":single_tags[0], "schema":schema, "mode":"AND"})
+                        
+                    for single_tag in single_tags[1:]:
+                        bool_chunks_list.append({"slug":single_tag, "schema":schema, "mode":"OR"})
+    return bool_chunks_list
+
+
 def search(params):
+    
     search_string=params.get('string', "")
     tags_string=params.get('tags', "")
+    tags_string_must=params.get("tags!", "")
     entity_search=params.get('entity', "")
-
-    if search_string!="" or tags_string!="":
-        type=params.get("type", "")
+    type=params.get("type", "")
+    
+    if search_string!="" or tags_string!="" or type!="":
+        
         if type!="":
             try:
                 entity_type=EntityType.objects.get(slug=type)
                 if entity_type.do_index:
-                    import erm.core.search_engine
                     search_engine=erm.core.search_engine.SearchEngine(type)
                     
                     queries=list()
+                    mode=params.get("mode", "SHOULD")
                     
                     if search_string!="" and search_string!="*":
                         fields=list()
                         if params.get("fields", "")!="":
                             fields=params.get("fields", "").split(",")
+                        else:
+                            search_string=search_string.replace('+', ' +')
+                            fields=['_global_search_field']
+                            words=search_string.split()
+                            search_list=list()
+                            
+                            added_boolean=False
+                            for word in words:
+                                
+                                
+                                if word in ("AND", "OR", "NOT"):
+                                    search_list.append(word)
+                                    added_boolean=True
+                                else:
+                                    if len(search_list) and not (word.startswith('-') or word.startswith('+')) and not added_boolean:
+                                        search_list.append("AND")
+                                    if word.startswith('*'):
+                                        word=word[1:]
+                                    if not word.endswith('*'):
+                                        word="%s*" % word
+                                    search_list.append(word)
+                                    added_boolean=False
+                            search_string=" ".join(search_list)
                         queries.append({"fields":fields, "query":search_string})
                     
                     if tags_string!="":                        
-                        or_chunks_list=tags_string.split("|")
-                        bool_chunks_list=list()
-                        for or_chunck in or_chunks_list:
-                            found_one=False
-                            if or_chunck!="":
-                                and_chunks_list=or_chunck.split('&')
-                                for and_chunk in and_chunks_list:
-                                    if and_chunk!="":
-                                        tags_split=and_chunk.split("{")
-                                        tags=tags_split[0]
-                                        schema=len(tags_split)>1 and tags_split[1][:-1] or "*"
-                                        single_tags = tags.split(",")
-                                                
-                                        if not found_one:
-                                            bool_chunks_list.append({"slug":single_tags[0], "schema":schema, "mode":"OR"})
-                                            found_one=True
-                                        else:
-                                            bool_chunks_list.append({"slug":single_tags[0], "schema":schema, "mode":"AND"})
-                                            
-                                        for single_tag in single_tags[1:]:
-                                            bool_chunks_list.append({"slug":single_tag, "schema":schema, "mode":"OR"})
+                        _query_mode=mode
+                        if ":" in tags_string:
+                            tags_string, _query_mode = tags_string.split(":")
+                        bool_chunks_list=parse_search_tags(tags_string)
                         if len(bool_chunks_list)>0:
-                            queries.append({"fields":["tags"], "query":bool_chunks_list, "type":"tags"})
+                            queries.append({"fields":["tags"], 
+                                            "query":bool_chunks_list, 
+                                            "type":"tags", 
+                                            'mode':_query_mode})
+                    
+                    if tags_string_must!="":                        
+                        bool_chunks_list=parse_search_tags(tags_string_must)
+                        if len(bool_chunks_list)>0:
+                            queries.append({"fields":["tags!"], "query":bool_chunks_list, "type":"tags"})
+                    
+                    if len(queries)==0:
+                        queries.append({"fields":["entity_type"], "query":type, "type":"term"})
+
+                    _sort=list()
+                    if params.get('sortby', "")!="":
+                        _sort=params.get('sortby').split(',')
+                    
+                    _range=list()
+                    if params.get('range', "")!="":
+                        _range_chunks=params.get('range').split(',')
+                        for _chunk in _range_chunks:
+                            _desc=dict()
+                            _range_field, _range_range=_chunk.split(':')
+                            _range_inclusive=_range_range[:1]=='['
+                            _range_start, _range_end=_range_range[1:-1].split('-')
+                            _range_kind='TERM'
+                            _desc['field']=_range_field
+                            _desc['from']=_range_start
+                            _desc['to']=_range_end
+                            _desc['inclusive']=_range_inclusive
+                            _desc['kind']=_range_kind
+                            _range.append(_desc)
 
                     if len(queries):
                         page_size=int(params.get("page_size", 100))
@@ -241,22 +310,45 @@ def search(params):
                         items_limit=params.get("items_limit", None)
                         if items_limit:
                             items_limit=int(items_limit)
-                        mode=params.get("mode", "SHOULD")
-                    
-                        result=search_engine.search(queries, page_size, page_num, items_limit, mode)
+                        
+                        get_query=bool(int(params.get('get_query',0)))
+                        preserve_query=bool(int(params.get('preserve_query',0)))
+                        
+                        result=search_engine.search(queries, 
+                                                    _sort,
+                                                    _range,
+                                                    page_size, 
+                                                    page_num, 
+                                                    items_limit, 
+                                                    mode,
+                                                    get_query,
+                                                    preserve_query)
                                         
-                        if bool(int(params.get("get_entities", 0))):
-                            entities_data=list()
-                            for hit in result['docs']:
-                                entity=Entity.objects.get(id=hit['entity_id']).to_dict(bool(int(params.get("compact", 1))), 
-                                                          params.get("return_attrs", ""), 
-                                                          params.get("return_tags", ""),
-                                                          bool(int(params.get("rels", 0)))
-                                                          )
-                                entity['lucene_score']=hit['lucene_score']
-                                entities_data.append(entity)
-                            result['data']=entities_data
-                        result['page']=result['page']+1
+                        if not get_query:
+                            if bool(int(params.get("get_entities", 0))):
+                                entities_data=list()
+                                _missing_entities=list()
+                                for hit in result['docs']:
+                                    try:
+                                        entity=Entity.objects.get(id=hit['entity_id']).to_dict(bool(int(params.get("compact", 1))), 
+                                                                  params.get("return_attrs", ""), 
+                                                                  params.get("return_tags", ""),
+                                                                  bool(int(params.get("rels", 0)))
+                                                                  )
+                                        entity['lucene_score']=hit['lucene_score']
+                                        entities_data.append(entity)
+                                    except ObjectDoesNotExist:
+                                        _missing_entities.append(hit['entity_id'])
+                                        pass
+                                    except Exception, err:
+                                        raise ApiError(None, "100", "%s: %s" % (Exception, hit))
+                                    
+                                if len(_missing_entities):
+                                    result['missing']=_missing_entities
+                                result['data']=entities_data
+                            result['page']=result['page']+1
+                            result['page_size']=page_size
+                        
                         return result
                     else:
                         raise ApiError(None, "100", "No valid search passed" % type)
@@ -267,13 +359,13 @@ def search(params):
         else:
             raise ApiError(None, "100", "An entity type is required")
         
-
     elif entity_search!="":
         #get_count=false
         items=dict((str(item.split(":")[0]),str(item.split(":")[1])) for item in entity_search.split(","))
         if items.has_key("query"):
-            items["attributes"]=items["query"]
+            items["attributes"]=urllib.unquote_plus(items["query"])
             del items["query"]
+        
         for param in ["compact","return_tags","return_attrs"]:
             if items.has_key(param):
                 params[param]=items[param]
@@ -295,7 +387,7 @@ def get_related_entities(params):
         entity_item['related']=[item.to_dict() for item in to_entities]
         res_entities.append(entity_item)
     return res_entities
-
+ 
 def entity_connector_action(params):
     type_obj=EntityType.objects.get(slug=params.get('type'))
     united=params.get('united')
@@ -318,4 +410,34 @@ def entity_connector_action(params):
         return type_obj.repository.do_action(target_obj_id, action, params.get('parameters'))
     else:
         raise ApiError(None, 101, "No action passed")
+
+def get_tag(params):
+
+    query = """ SELECT etc.object_tag_name FROM %s AS etc, %s AS ets 
+ WHERE etc.object_tag_schema_id=ets.id
+ AND etc.object_tag_id='%s'
+ AND ets.name='%s'
+ AND etc.weight >=0
+ LIMIT 1;
+"""		   
+    tags_objs= "core_entitytagcorrelation"   
+    tags_schemas = "core_entitytagschema"
+
+    tag = params.get('slug', "").strip()
+    schema = urllib.unquote_plus(params.get('schema', "")).strip()
+
+    if tag!="" and schema!="": 
         
+        query = query % (tags_objs, tags_schemas, tag, schema)
+        
+        if params.get('query') == "1":
+            return query
+        cursor = connection.cursor()
+        if cursor.execute(query):
+            return list(cursor.fetchall()[0])
+    else:
+        raise ApiError(None, 102, "slug and schema are required")
+    return list()
+
+def entity_export(params):
+    return get_entity(params)

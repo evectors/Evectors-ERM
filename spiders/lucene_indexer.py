@@ -21,6 +21,7 @@ from inspect import getfile, getsourcefile, getmodule
 from optparse import OptionParser
 
 import logging
+from lib.logger import Logger
 
 from erm.lib.misc_utils import *
 from erm.core.search_engine import SearchEngine
@@ -43,7 +44,8 @@ class Procedure(Processor):
                  logging_level="DEBUG", 
                  item_id=None, 
                  process_all=False, 
-                 sql_where=""
+                 sql_where="",
+                 optimize='loop'
                  ):
                 
         super(Procedure, self).__init__(processor_name=name, 
@@ -62,14 +64,52 @@ class Procedure(Processor):
         self.reset_index=self.process_all
         self.add_items=self.reset_index
         self.type=type
-        self.engine=SearchEngine(self.type, self.reset_index)
+        self.typeProcessors=dict()
+        self.optimize=optimize
+        for single_type in type.split(','):
+            self.typeProcessors[single_type]={"reset_index":self.reset_index, 
+                                              "add_items": self.add_items,
+                                              "engine":SearchEngine(single_type, self.reset_index)
+                                              }
+        #self.engine=SearchEngine(self.type, self.reset_index)
          
     def process_item(self, entity):
-        if self.add_items:
-            self.engine.add_entity(entity)
+        temp_type=entity.type.slug
+        if self.typeProcessors.has_key(temp_type):
+            if self.add_items:
+                self.typeProcessors[temp_type]['engine'].add_entity(entity)
+            else:
+                self.typeProcessors[temp_type]['engine'].update_entity(entity)
+            self.typeProcessors[temp_type]['reset_index']=False
+
+            if self.optimize=='always':
+                for type_processor in self.typeProcessors.values():
+                    type_processor['engine'].optimize()
         else:
-            self.engine.update_entity(entity)
-        self.reset_index=False
+            self.logger.warning('unrequired type: %s' % temp_type)
+
+    def process_subchunk(self):
+        self.logger.debug("process_subchunk")
+        if self.optimize=='subchunk':
+            for type_processor in self.typeProcessors.values():
+                type_processor['engine'].optimize()
+
+    def process_chunk(self, slow_by=1):
+        result = super(Procedure, self).process_chunk(slow_by)
+        self.logger.debug("process_chunk")
+        if self.optimize=='chunk' and len(result):
+            for type_processor in self.typeProcessors.values():
+                type_processor['engine'].optimize()
+            self.logger.warning("------->%s" % self.typeProcessors.keys())
+        return result
+        
+    def loop(self):
+        result = super(Procedure, self).loop()
+        self.logger.debug("loop")
+        if self.optimize=='loop':
+            for type_processor in self.typeProcessors.values():
+                type_processor['engine'].optimize()
+        return result
 
 
 def main():
@@ -95,8 +135,23 @@ def main():
         help="pause time after each process loop")
     parser.add_option("--sleepsubchunk", action="store", dest="sleep_seconds_subchunk", default="1",
         help="pause time after each subchunk loop")
-    parser.add_option("--chunksize", action="store", dest="chunk_size", default=BATCH_ITEMS_CHUNK,
+    parser.add_option("-c", "--chunksize", action="store", dest="chunk_size", default=BATCH_ITEMS_CHUNK,
         help="items to process in each chunk")
+    parser.add_option("-o", "--optimize", action="store", dest="optimize", default="loop",
+        help="choose optimization mode")
+    parser.add_option("--stdoutlog", action="store_true", dest="stdoutlog", default=False,
+        help="log to stdout")
+    parser.add_option("--logname", action="store", dest="logname", default="lucene_erm_indexer",
+        help="choose log name")
+    parser.add_option("--loggername", action="store", dest="loggername", default="lucene_erm_indexer",
+        help="choose logger name")
+# optimization has a heavy impact on performance, options are:
+# always
+# subchunk
+# chunk
+# loop
+# onquit
+# never
     
     opts, args = parser.parse_args()
 
@@ -105,12 +160,17 @@ def main():
     else:
         logging_level = "WARNING"
     
+    logger=Logger(logging_level, 
+                  opts.logname, 
+                  fl_stdoutlog=opts.stdoutlog,  
+                  logger_name=opts.loggername)
+
     opts.sleep_seconds=int(opts.sleep_seconds)
     opts.sleep_seconds_subchunk=int(opts.sleep_seconds_subchunk)
     opts.chunk_size=int(opts.chunk_size)
    
     if opts.type!="":
-        my_proc=Procedure(my_name, \
+        my_proc=Procedure(my_name + "_erm_" +  "_".join(opts.type.split(',')), \
                           'entity', \
                           opts.type,\
                           run_forever=not opts.single_run, \
@@ -120,11 +180,18 @@ def main():
                           sleep_seconds=opts.sleep_seconds,\
                           sleep_seconds_subchunk=opts.sleep_seconds_subchunk,\
                           chunk_size=opts.chunk_size,
+                          optimize=opts.optimize,
+                          logger=logger,
                           )
         
-        my_proc.logger.warning("%s" % opts)
+        my_proc.logger.debug("%s" % opts)
     
         my_proc.loop()
+
+        if my_proc.optimize!='never':
+            for type_processor in my_proc.typeProcessors.values():
+                type_processor['engine'].optimize()
+
     else:
         raise Exception("Entity type (option -t) is required")
     #logger.debug("items: %s" % my_proc.process_chunk())

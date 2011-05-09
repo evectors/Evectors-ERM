@@ -8,6 +8,8 @@ from django.db.models.query import EmptyQuerySet
 from django.db import connection, DatabaseError, IntegrityError, transaction
 from django.db.models import Q
 
+from erm.lib.tags_utils import build_tags_Q_filter
+
 import re
 
 from erm.lib.logger import *
@@ -429,7 +431,7 @@ def get_entity_tag(params):
         try:        
             from django.db import connection
             
-            query="""SELECT object_tag_id, ets.slug, COUNT(object_tag_id) AS entities_count 
+            query="""SELECT object_tag_id, object_tag_name, ets.slug, COUNT(object_tag_id) AS entities_count 
                 FROM core_entitytagcorrelation AS etc 
                 INNER JOIN core_entity AS e ON e.id=etc.object_id 
                 INNER JOIN core_entitytagschema AS ets ON ets.id=etc.object_tag_schema_id 
@@ -470,7 +472,7 @@ def get_entity_tag(params):
             cursor = connection.cursor()
             cursor.execute(' '.join(query.split()))
             all_items=cursor.fetchall()
-            fields = ('tag','schema', 'entities_count')
+            fields = ('tag', 'name', 'schema', 'entities_count')
             items_dict = [dict(zip(fields, r)) for r in all_items]
             
             for tag_item in items_dict:
@@ -572,17 +574,18 @@ def get_entity(params):
         if len(real_keys.difference(fast_tags_sort_params))==0 and ('sort' in real_params) and len(real_params['sort'].split(','))==1 and ("tag:" in real_params['sort']):
             
             fl_do_fast_tags_sort=True
-            sort_tag=real_params['sort'].split(":")[1]
+            _mode,sort_tag=real_params['sort'].split(":")
             sort_schema=""
             if sort_tag.find("{")>=0:
                 sort_tag, sort_schema=sort_tag.split('{')
                 sort_schema=sort_schema[:-1]
             
+            direction='ASC'
             if sort_tag[:1]=='-':
                 direction='DESC'
                 sort_tag=sort_tag[1:]
-            else:
-                direction='ASC'
+            if _mode[:1]=='-':
+                direction='DESC'
             
             tags_filter=real_params.get('tags', '')
             if tags_filter!="":
@@ -633,7 +636,22 @@ def get_entity(params):
             cursor = connection.cursor()
             cursor.execute(global_query)
             ids_list=list(cursor_item[0] for cursor_item in cursor.fetchall())
-            objects=objects.filter(id__in=ids_list)
+            result=list()
+            
+            _details_params={'return_attrs':params.get('return_attrs', ""),
+                             'return_tags': params.get('return_tags', ""),
+                             'return_rels':params.get('return_rels', params.get('rels', ""))
+                             }
+            _compact=bool(int(params.get('compact', 0))) and not any(_details_params)
+            
+            for _id in ids_list:
+                result.append(objects.get(id=_id).to_dict(_compact, 
+                                                           params.get('return_attrs', ""), 
+                                                           params.get('return_tags', "") ,
+                                                           params.get('rels', "")))
+            if int(params.get('total_count', 0))==1:
+                result={"count":total_items, "data":result}
+            return result
 #===========================>Good'ol generic stuff
         else:
  
@@ -659,12 +677,16 @@ def get_entity(params):
                     objects=objects.filter(id=ids_list[0])
                 elif len(ids_list)>1:
                     objects=objects.filter(id__in=ids_list)
-    
+                else:
+                    return list()
+
             objects=build_text_search(objects, "slug", params)
             
-            objects=build_text_search(objects, "uri", params)
+            objects=build_text_search(objects, "uri", params, unquote=True)
     
             objects=build_text_search(objects, "name", params)
+
+            objects=build_text_search(objects, "remote_id", params)
     
             objects=build_date_search(objects, "creation_date", params)
     
@@ -672,7 +694,16 @@ def get_entity(params):
     
             objects=build_date_search(objects, "custom_date", params)
                         
-            #RELATIONSHIPS FILTERING
+#======================>TAGS FILTERING
+            tags_filter=build_tags_Q_filter(params.get('tags', ""), 
+                                            "tags", 
+                                            "entitytagcorrelation", 
+                                            EntityTagSchema,
+                                            objects)
+            if tags_filter is not None:
+                objects=objects.filter(tags_filter).distinct()
+                
+#==================RELATIONSHIPS FILTERING
             if params.get('rel', "")!="":
                 or_chunks_list=params.get('rel', "").split("||")
                 chunks_list=list()
@@ -683,10 +714,17 @@ def get_entity(params):
                          for and_item in item.split("&&"):
                              chunks_list.append({"match":and_item, "mode":"and"})
                 
-                qset_rel = Q()
-                             
+                qset_rel_filter = Q()
+                qset_rel_exclude = Q()
+                has_negated_rel=False
+                
                 for chunk in chunks_list:
                     
+                    chunk_negated=False
+                    if chunk["match"].startswith("!"):
+                        chunk_negated=True
+                        chunk["match"]=chunk["match"][1:]
+                        
                     if chunk["match"].find("<")>0:
                         chunk_match=chunk["match"]
                         chunk_match=chunk_match.replace("<", ">")
@@ -702,9 +740,14 @@ def get_entity(params):
                     qset_rel_inner = Q()
                     rel_list=chunk["match"].split('>')
                     #return rel_list
-                    rel, rel_tags=rel_list[0].split('[')
+                    if "[" in rel_list[0]:
+                        rel, rel_tags=rel_list[0].split('[')
+                    else:
+                        rel_tags=""
+                        rel=rel_list[0]
                     if rel_tags!="":
                         rel_tags=rel_tags[:-1]
+                    
                     entity=rel_list[1].split("{")
                     entity_type=""
                     if len(entity)>1:
@@ -717,12 +760,23 @@ def get_entity(params):
                         if entity!="":
                             qset_rel_inner&=(Q(related_to__entity_to__slug__in=entity) | Q(related_by__entity_from__slug__in=entity))
                     elif rel[0]=='-':
+                    
                         if len(rel)>1:
                             qset_rel_inner&=Q(related_by__rel_type__slug=rel[1:])
+                            
                         if entity!="":
                             qset_rel_inner&=Q(related_by__entity_from__slug__in=entity)
+                            
                         if entity_type!="":
                             qset_rel_inner&=Q(related_by__entity_from__type__slug=entity_type)
+                            
+                        rel_tags_filter=build_tags_Q_filter(rel_tags, 
+                                                            "related_by__tags", 
+                                                            "related_by__relationshiptagcorrelation",
+                                                            RelationshipTagSchema,
+                                                            qset_rel_inner) 
+                        if rel_tags_filter is not None:
+                            qset_rel_inner&=rel_tags_filter
                     else:
                         
                         if rel[0]=="+":
@@ -736,81 +790,36 @@ def get_entity(params):
                     
                         if entity_type!="":
                             qset_rel_inner&=Q(related_to__entity_to__type__slug=entity_type)
-                    
-                    
-                
-                    if chunk["mode"]=="and":
-                        qset_rel&=qset_rel_inner
-                    else:
-                        qset_rel|=qset_rel_inner
-                    
-                #return dir(qset)
-                objects=objects.filter(qset_rel).distinct()
-                
-#======================>TAGS FILTERING
-            if params.get('tags', "")!="":
-                or_chunks_list=params.get('tags', "").split("||")
-                chunks_list=list()
-                schemas_dict=dict()
-                for item in or_chunks_list:
-                     if item.find("&&")<0:
-                         chunks_list.append({"match":item, "mode":"or"})
-                     else:
-                         for and_item in item.split("&&"):
-                             chunks_list.append({"match":and_item, "mode":"and"})
-                qset = Q()
-                for chunk in chunks_list:
-                    all_negated=False
-                    schema_negated=False
-                    
-                    tag_key=""
-                    
-                    qset_inner = Q()
-                    
-                    tags_split=chunk["match"].split("{")
-                    
-                    tags=tags_split[0]
-                    
-                    if tags[:1]=="!":
-                        all_negated=True
-                        tags=tags[1:]
-                    
-                    schema=len(tags_split)>1 and tags_split[1][:-1] or ""
-                    
-                    if schema[:1]=="!":
-                        schema_negated=True
-                        schema=schema[1:]
-                    
-                    if schema!='' and not schema in schemas_dict:
-                        schemas_dict[schema]=EntityTagSchema.objects.get(slug=unquote(schema)).id
-                        
-                    tags_re_list=re.split('((?:[^",]|(?:"(?:\\{2}|\\"|[^"])*?"))*)', tags)
-                    slugs_list=list()
-                    for item in tags_re_list:
-                        if item.strip()!='' and item.strip()!=',':
-                            slugs_list.append(item.strip())
-    #                        slugs_list.append(string_to_slug(item.strip()))
-                    #return slugs_list, schema
-                    if len(slugs_list):
-                        if len(slugs_list)==1:
-                            qset_inner |= Q(tags__slug=slugs_list[0])
-                        else:
-                            qset_inner |= Q(tags__slug__in=slugs_list)
-                    if schema != '':
-                        if not schema_negated:
-                            qset_inner &= Q(entitytagcorrelation__object_tag_schema__id=schemas_dict[unquote(schema)])
-                        else:
-                            qset_inner &= ~Q(entitytagcorrelation__object_tag_schema__id=schemas_dict[unquote(schema)])
-                    
-                    if all_negated:
-                        qset_inner = ~qset_inner
                             
-                    if chunk["mode"]=="and":
-                        qset&=qset_inner
-                    else:
-                        qset|=qset_inner
-                objects=objects.filter(qset)
+                        rel_tags_filter=build_tags_Q_filter(rel_tags, 
+                                                            "related_to__tags", 
+                                                            "related_by__relationshiptagcorrelation",
+                                                            RelationshipTagSchema,
+                                                            qset_rel_inner) 
+                        if rel_tags_filter is not None:
+                            qset_rel_inner&=rel_tags_filter
                     
+                
+                    if not chunk_negated:
+                        if chunk["mode"]=="and":
+                            qset_rel_filter&=qset_rel_inner
+                        else:
+                            qset_rel_filter|=qset_rel_inner
+                    else:
+                        has_negated_rel=True
+                        if chunk["mode"]=="and":
+                            qset_rel_exclude&=qset_rel_inner
+                        else:
+                            qset_rel_exclude|=qset_rel_inner
+                #return dir(qset)
+                if qset_rel_filter!=Q():
+                    objects=objects.filter(qset_rel_filter).distinct()
+
+                if has_negated_rel:
+                    exclude_ids_list=objects.filter(qset_rel_exclude).distinct().values_list('id', flat=True)
+                    objects=objects.exclude(id__in=exclude_ids_list)
+
+#======================>ATTRIBUTES FILTERING
             if params.has_key('attributes') and params.get('attributes'):
                 entity_type=params.get('type')
                 if entity_type and entity_type!="":
@@ -823,6 +832,7 @@ def get_entity(params):
             else:
                 pass
     
+#======================>LATITUDE AND LONGITUDE FILTERING
             _NE=params.get('NE')
             _SW=params.get('SW')
             
@@ -873,6 +883,7 @@ def get_entity(params):
             if int(params.get('count', 0))==1:
                 return objects.count()
             
+#======================>SORTING
             if params.get('sort', "")!="":
                 order_by=params.get('sort', "").split(',')
                 for sortby in order_by:
@@ -911,10 +922,14 @@ def get_entity(params):
                                     tag_select="%s_%s" % (tag_select, unquote(schema))
                                 else:
                                     tag_select=unquote(schema)
-                            subquery_select='''SELECT DISTINCT core_entitytagcorrelation.weight 
-                            FROM core_entitytagcorrelation WHERE %s  
-                            GROUP BY `core_entity`.`id`''' % (" AND ".join(subquery_wheres, ))
-                            
+                            if tag!="":
+                                subquery_select='''SELECT DISTINCT core_entitytagcorrelation.weight 
+                                FROM core_entitytagcorrelation WHERE %s  
+                                GROUP BY `core_entity`.`id`''' % (" AND ".join(subquery_wheres, ))
+                            else:
+                                subquery_select='''SELECT DISTINCT core_entitytagcorrelation.object_tag_name 
+                                FROM core_entitytagcorrelation WHERE %s  
+                                GROUP BY `core_entity`.`id`''' % (" AND ".join(subquery_wheres, ))
                             tag_select="tag_sort_by_field" #% tag_select
                             subquery_order="%s%s" % (sign, tag_select)
                             
@@ -931,7 +946,9 @@ def get_entity(params):
 
             if int(params.get('paged', 0))==1 or int(params.get('total_count', 0))==1:
                 total_items = objects.count()
-    
+        
+#======================>BUILD RESULT
+        
         if int(params.get('paged', 0))==1:
             page_size=int(params.get('page_size', 100))
             page_num=int(params.get('page_num', 0))
@@ -944,16 +961,20 @@ def get_entity(params):
             else:
                 result = list()
         else:
-            list_offset=max(int(params.get('offset', 0)),0)
-            list_limit=max(int(params.get('limit', 20)),1)
-        
-            if params.has_key('step') and params.get('step')!="":
-                result=list(objects[list_offset: list_offset+list_limit:int(params.get('step',1))])
-            else:
-                result=list(objects[list_offset: list_offset+list_limit])
-                
+            result=list(objects[list_offset: list_offset+list_limit])
             if int(params.get('total_count', 0))==1:
-                result={"count":total_items, "data":[item.to_dict(bool(int(params.get('compact', 1))), params.get('return_attrs', ""), params.get('return_tags', "") ,params.get('rels', "")) for item in result]}            
+                _details_params={'return_attrs':params.get('return_attrs', ""),
+                                 'return_tags': params.get('return_tags', ""),
+                                 'return_rels':params.get('return_rels', params.get('rels', ""))
+                                 }
+                _compact=bool(int(params.get('compact', 0))) and not any(_details_params)
+                result=[item.to_dict(_compact, 
+                                     _details_params['return_attrs'],
+                                     _details_params['return_tags'],
+                                     _details_params['return_rels']
+                                    ) for item in result]
+                result={"count":total_items, 
+                        "data": result}            
                 
         return result
     except Exception, err:
@@ -1013,6 +1034,7 @@ def add_entity(params):
                                        entity_union=entity_union,
                                        name=name,
                                        uri=params.get('uri'),
+                                       remote_id=params.get('remote_id'),
                                        longitude=_longitude,
                                        latitude=_latitude
                                        )
@@ -1059,33 +1081,78 @@ def add_entity(params):
     else:
         raise ApiError(None, 1102, "slug")
 
+def create_entity(params):
+    if params.get('slug',"")!="":
+        slug = params.get('slug')
+        name = params.get('name')
+        if slug and slug!="" and slug == string_to_slug(slug):
+            
+            if not name or name=="":
+                name=slug
+                
+            obj_type=None
+            if params.has_key('type') and params.get('type'):
+                try:
+                    obj_type=EntityType.objects.get(slug=params.get('type'))
+                except:
+                    pass
+            if obj_type:
+                try:
+                    entity_union=None                        
+                    new_obj=Entity(
+                                   slug=slug, 
+                                   status=params.get('status', "A"), 
+                                   type=obj_type, 
+                                   name=name,
+                                   )
+                    new_obj.save()
+                    
+                    if new_obj.type.repository:
+                        new_obj.type.repository.add_record(new_obj.id, dict())
+                    
+                    return new_obj
+
+                except IntegrityError, err:
+                    raise ApiError(None, 1300, "%s of type %s (%s)" % (slug, obj_type.name, Entity.objects.filter(slug=slug, type=obj_type)[0].id))
+                except Exception, err:
+                        raise ApiError(None, 1101, "%s-%s" % (Exception, err))
+
+            else:
+                raise ApiError(None, 1311, "entity_type slug='%s', entity_type id='%s'" % (params.get('type'), params.get('type_id')))
+        else:
+            raise ApiError(None, 1104, "'%s' -> '%s'" % (slug, string_to_slug(slug)))
+    else:
+        raise ApiError(None, 1102, "slug")
+
 def set_entity(params):
-    target_obj=get_entity({'id':params.get('id'), 
-                           'slug':params.get('slug'), 
-                           'type_id':params.get('type_id'), 
+    target_obj=get_entity({'slug':params.get('slug'), 
                            'type':params.get('type'),
                            'united':params.get('united')})
-    if len(target_obj)==1:
+    if len(target_obj)==0 and bool(int(params.get('add_if_missing', 1))):
+        target_obj=[create_entity({'slug':params.get('slug'),
+                                    'name':params.get('name'),
+                                    'type':params.get('type'),
+                                    'entity_union':params.get('entity_union'),
+                                    })]
+    if len(target_obj)==1 and target_obj[0] is not None:
         try:
             #TRANSACTION?
             target_obj=target_obj[0]
             
             union_obj=None
-            old_union=target_obj.entity_union
+            old_union=None
+            if hasattr(target_obj, "entity_union"):
+                old_union=target_obj.entity_union
             
             if params.has_key('union') and params.get('union'):
                 try:
                     union_obj=EntityUnion.objects.get(slug=params.get('union'))
                 except:
                     pass
-            if not union_obj:
-                if params.has_key('union_id') and params.get('union_id'):
-                    try:
-                        union_obj=EntityUnion.objects.get(id=params.get('union_id'))
-                    except:
-                        union_obj=target_obj.entity_union
-                else:
-                    union_obj=target_obj.entity_union
+
+            if not union_obj or union_obj is None:
+                union_obj=old_union
+
             target_obj.entity_union=union_obj
 
             if old_union and old_union!=union_obj:       
@@ -1096,7 +1163,9 @@ def set_entity(params):
             target_obj.status=params.get('status', target_obj.status)
             target_obj.name=params.get('name', target_obj.name)
             target_obj.password=params.get('password', target_obj.password)
+            
             target_obj.uri=params.get('uri', target_obj.uri)
+            target_obj.remote_id=params.get('remote_id', target_obj.remote_id)
             
             _longitude=target_obj.longitude
             _latitude=target_obj.latitude
@@ -1115,7 +1184,8 @@ def set_entity(params):
             target_obj.longitude=_longitude
 
             if params.has_key('custom_date'):
-                if params.get('custom_date'):
+                passed_custom_date=params.get('custom_date')
+                if passed_custom_date and passed_custom_date!=None and passed_custom_date!="0":               
                     target_obj.custom_date=datetime.datetime.fromtimestamp(float(params.get('custom_date')))
                 else:
                     target_obj.custom_date=None

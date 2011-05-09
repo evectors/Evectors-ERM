@@ -19,6 +19,9 @@ class Connector(object):
     def get_default_attributes(self):
         return list()
 
+    def get_remote_attributes(self):
+        return list()
+
     def update_fields(self, fields):
         return self.fields
     

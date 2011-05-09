@@ -151,16 +151,13 @@ def rel_tag(request, api_key, **params):
 #
 class RelationshipApi(API):
 
-#    def check_params(self, params, missing_list):
-#        if not params.has_key('id') and not(params.has_key('slug') and (params.has_key('type') or params.has_key('type_name'))):
-#            missing_list.append('id or (slug AND (type OR type_name))')
-#
-#    def check_post _params(self, params, missing_list):
-#        if not params.has_key('name') or not(params.has_key('tye') or params.has_key('type_name')):
-#            missing_list.append('name AND (type OR type_name)')
+    def check_params(self, params, missing_list):
+        if not (params.has_key('entity_from_type') or params.has_key('entity_to_type')):
+            missing_list.append('entity_from_type or entity_to_type')
+
     def __init__(self,request, api_key, params):
         super(RelationshipApi, self).__init__(request, api_key, params)
-        self.validators={'GET':None, 
+        self.validators={'GET':{'params':self.check_params}   , 
                          'POST':{'args':None},#['rel_type_id', 'entity_from_id', 'entity_to_id']}, 
                          'PUT':{'args':['rel_type', 'entity_from', 'entity_from_type', 'entity_to', 'entity_to_type']},
                          'DEL':{'params':['id']}   ,

@@ -10,6 +10,8 @@ from django.db import connection, DatabaseError, IntegrityError, transaction
 
 from urllib import unquote
 
+from erm.lib.tags_utils import build_tags_Q_filter
+
 #ERROR_CODES=dict()
 #=====================generic or common errors=====================#
 ERROR_CODES["11100"]="relationship manager: Error management error"
@@ -554,62 +556,13 @@ def get_rel(params):
             objects=objects.filter(entity_to__type=entity_to_type)
             
         #TAGS FILTERING
-        if params.get('tags', "")!="":
-            or_chunks_list=params.get('tags', "").split("||")
-            chunks_list=list()
-            for item in or_chunks_list:
-                 if item.find("&&")<0:
-                     chunks_list.append({"match":item, "mode":"or"})
-                 else:
-                     for and_item in item.split("&&"):
-                         chunks_list.append({"match":and_item, "mode":"and"})
-            qset = Q()
-            for chunk in chunks_list:
-                all_negated=False
-                schema_negated=False
-                
-                tag_key=""
-                
-                qset_inner = Q()
-                
-                tags_split=chunk["match"].split("{")
-                
-                tags=tags_split[0]
-                
-                if tags[:1]=="!":
-                    all_negated=True
-                    tags=tags[1:]
-                
-                schema=len(tags_split)>1 and tags_split[1][:-1] or ""
-                
-                if schema[:1]=="!":
-                    schema_negated=True
-                    schema=schema[1:]
-                
-                tags_re_list=re.split('((?:[^",]|(?:"(?:\\{2}|\\"|[^"])*?"))*)', tags)
-                slugs_list=list()
-                for item in tags_re_list:
-                    if item.strip()!='' and item.strip()!=',':
-                        slugs_list.append(item.strip())
-#                        slugs_list.append(string_to_slug(item.strip()))
-                #return slugs_list, schema
-                if len(slugs_list):
-                    qset_inner |= Q(tags__slug__in=slugs_list)
-                if schema != '':
-                    if not schema_negated:
-                        qset_inner &= Q(relationshiptagcorrelation__object_tag_schema__slug=unquote(schema))
-                    else:
-                        qset_inner &= ~Q(relationshiptagcorrelation__object_tag_schema__slug=unquote(schema))
-                
-                if all_negated:
-                    qset_inner = ~qset_inner
-                        
-                if chunk["mode"]=="and":
-                    qset&=qset_inner
-                else:
-                    qset|=qset_inner
-            #return dir(qset)
-            objects=objects.filter(qset)
+        tags_filter=build_tags_Q_filter(params.get('tags', ""), 
+                                        "tags", 
+                                        "relationshiptagcorrelation",
+                                        RelationshipTagSchema,
+                                        objects)
+        if tags_filter is not None:
+            objects=objects.filter(tags_filter).distinct()
         
         if params.get('sort', "")!="":
             order_by=params.get('sort', "").split(',')
@@ -814,16 +767,16 @@ def set_rel(params):
             
             return target_obj
         elif len(target_obj)==0:
-            raise ApiError(None, 11400)
+            return add_rel(params)
+            #raise ApiError(None, 11400)
         else:
             raise ApiError(None, 11401)
     except Exception, err:
         raise ApiError(None, 11101, err)
 
 def del_rel(params):
+    transaction.enter_transaction_management()
     try:
-        transaction.enter_transaction_management()
-#        transaction.managed(True)
         old_object=get_rel(params)
         if len(old_object)==1:
             old_object_data=old_object[0].to_dict()
@@ -835,20 +788,16 @@ def del_rel(params):
                 except:
                     pass
             old_object[0].delete()
+            transaction.commit()
             return old_object_data
         elif len(old_object)==0:
-            raise ApiError(None, 11500, [id, slug])
+            raise ApiError(None, 11500, "%s" % params)
         else:
-            raise ApiError(None, 11501, [id, slug])
-        transaction.commit()
-#        transaction.leave_transaction_management()
+            raise ApiError(None, 11501, "%s" % params)
     except Exception, err:
-#        transaction.rollback()
-#        transaction.leave_transaction_management()
+        transaction.rollback()
         raise ApiError(None, 11101, err)
-
-
-
-
+    finally:
+        transaction.leave_transaction_management()
 
 ##===================================================================

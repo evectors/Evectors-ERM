@@ -5,10 +5,12 @@
 import os
 import sys
 
-#sys.path.insert(0, '/opt/python2.5/site-packages')
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+nomad = os.path.dirname(os.path.abspath(__file__))
+while not nomad.endswith('/www'):
+    print nomad
+    if not nomad in sys.path:
+        sys.path.insert(0, nomad)
+    nomad=os.path.dirname(nomad)
 
 from django.core.management import setup_environ
 import settings
@@ -32,11 +34,22 @@ from lib.process_utils import *
 
 from erm.lib.logger import Logger
 
+from optparse import OptionParser
+
 BATCH_ITEMS_CHUNK=10
 BATCH_PAUSE_SECONDS=10
 BATCH_PAUSE_SECONDS_SUBCHUNK=2
 
-DB_TABLES={"entity": {"obj":Entity, "type_field":"type"}, "relationship": {"obj":Relationship, "type_field":"rel_type"}}
+DB_TABLES={ "entity": {
+                "obj":Entity, 
+                "type_field":"type"
+                }, 
+            "relationship": {
+                "obj":Relationship, 
+                "type_field":"rel_type"
+                }
+            }
+
 class Processor(object):
         
     def __init__(self, 
@@ -45,13 +58,19 @@ class Processor(object):
                  type=None, 
                  chunk_size=BATCH_ITEMS_CHUNK, 
                  sleep_seconds=BATCH_PAUSE_SECONDS, 
-                 logger=None, run_forever=True, 
-                 logging_level=logging.DEBUG, 
+                 logger=None, 
+                 run_forever=True, 
+                 logging_level='DEBUG', 
                  item_id=None, 
                  process_all=False, 
                  sql_where="",
                  sleep_seconds_subchunk=BATCH_PAUSE_SECONDS_SUBCHUNK, 
                 ):
+
+        if logger is not None:
+            self.logger=logger
+        else:
+            self.logger=Logger(logging_level, "batchprocessor", fl_stdoutlog=False, logger_name="batchprocessor")
 
         self.processor_name = processor_name
         self.table = table
@@ -62,19 +81,40 @@ class Processor(object):
         self.chunk_size  =chunk_size
         self.sleep_seconds = sleep_seconds
         self.sleep_seconds_subchunk=sleep_seconds_subchunk
-        self.last_parsed_info = None
+        self.last_parsed_info = self.loadInfo()
         self.run_forever = run_forever and not item_id
         self.item_id = item_id
         self.process_all = process_all
         self.sql_where = sql_where
         self.join = ''
         self.type=type
-                
-        self.logger=Logger(logging_level, "batchprocessor", fl_stdoutlog=True)
-        
-        pass
+        self.cursor = connection.cursor()        
+
+    def buildQuery(self):
+        if self.item_id is None:
+            wheres=list()
     
- 
+            if not self.process_all and self.last_parsed_info and self.last_parsed_info.get('last_start', None) is not None:
+                wheres.append("(%s>'%s')" % (self.date_field, self.last_parsed_info['last_start']))
+                self.logger.info('processing entities of type %s whose %s>%s'  %  (self.type, self.date_field, self.last_parsed_info['last_start']))
+            else:
+                self.logger.info('processing all entities of type %s'  %  (self.type))
+
+            if "," in self.type:
+                wheres.append( "t.slug IN ('%s')" % ("','".join(self.type.split(','))))
+            else:
+                wheres.append("t.slug='%s'" %(self.type))
+            
+            self.query_from_where="FROM core_%s it LEFT JOIN core_%stype t ON it.%s_id=t.id WHERE %s order by %s" % (self.table, self.table, self.type_field, ' AND '.join(wheres), self.date_field)
+
+        else:
+            if "," in self.item_id:
+                self.logger.info('processing entities %s'  %  (self.item_id))
+                self.query_from_where="FROM core_%s it WHERE id IN ('%s')" % (self.table, "','".join(self.item_id.split(',')))
+            else:
+                self.logger.info('processing entity %s'  %  (self.item_id))
+                self.query_from_where='FROM core_%s it WHERE id = %s' % (self.table, self.item_id)
+        
     def saveInfo(self, info):
         pickleToFile('daemon_' + self.processor_name, info)
 
@@ -90,98 +130,82 @@ class Processor(object):
             self.logger.critical('Error loading info: %s - %s' % (Exception, err))
             return default
         
-    def process_chunk(self, slow_by=1):
-        self.last_parsed_info=self.loadInfo()
-        recent_date=None
-        try:
-            if not self.process_all:
-                recent_date=self.last_parsed_info['date']
-                self.logger.debug("===>%s" % self.last_parsed_info.get('date', "NULL"))
-            else:
-                self.process_all=False
-        except:
-            pass
- 
-        cursor = connection.cursor()
-        items_list=list()
-                
-        if not self.item_id:
-            if recent_date and self.last_parsed_info and self.last_parsed_info.has_key('date') and self.last_parsed_info['date']: 
-                query="from core_%s it left join core_%stype t on it.%s_id=t.id where (%s>'%s') order by %s" % (self.table, self.table, self.type_field, self.date_field, self.last_parsed_info['date'], self.date_field)
-            else:
-                query='from core_%s it left join core_%stype t on it.%s_id=t.id order by %s' % (self.table, self.table, self.type_field, self.date_field)
-        else:
-            query='from core_%s it where id = %s' % (self.table, self.item_id)
+    def extract_chunk(self, chunk, items_count):
+        self.logger.warning("%s/%s" % (chunk*self.chunk_size, items_count))
+        extract_query = ('SELECT it.id ' + self.query_from_where + ' LIMIT %s OFFSET %s') % (self.chunk_size, chunk*self.chunk_size)
+        self.logger.debug(extract_query)
         
-        if self.type and self.type!="":
-            where_type = "t.slug='%s'" %(self.type)
-            if (not self.sql_where) or self.sql_where=="":
-                self.sql_where=where_type
-            else:
-                self.sql_where = "%s and %s" % (self.sql_where, where_type)
-            
-        if self.sql_where and self.sql_where!="":
-            where_pos=query.find("where")
-            if where_pos==-1:
-                query=query.replace("order", "where %s order" % self.sql_where)
-            else:
-                query=query.replace("where", "where %s and" % self.sql_where)
-        
-        self.logger.debug(query)
+        self.cursor.execute(extract_query)
+        all_items=self.cursor.fetchall()
+        return list (item[0] for item in all_items)
+
     
-        count_query='select count(*) ' + query
-        cursor.execute(count_query)
-                
-        items_count=cursor.fetchall()[0][0]
-        self.logger.debug('count: %s' % items_count)
+    def process_chunk(self, slow_by=1):
+        
+        self.chunk_started_at = datetime.datetime.now()
+
+        self.buildQuery()
+        
+        items_list=list()
+
+        items_count=0
         
         chunk=0
         
-        while chunk*self.chunk_size<items_count:
-            self.logger.warning("%s/%s" % (chunk*self.chunk_size, items_count))
-            extract_query = ('select it.id,it.%s ' + query + ' limit %s offset %s') % (self.date_field, self.chunk_size, chunk*self.chunk_size)
-            self.logger.debug(extract_query)
-            
-            cursor.execute(extract_query)
-            all_items=cursor.fetchall()
-            fields = ('id','date')
-            new_items = [dict(zip(fields, r)) for r in all_items]
+        self.logger.warning("%s items to process" % (items_count))
+        
+        chunk_items = self.extract_chunk(chunk, items_count)
+        chunk+=1
+        
 
-            self.logger.debug("items: %s" % new_items)
+        while len(chunk_items)>0:
             
-            if len(new_items):        
-                for item in new_items:
-                    self.logger.debug('item: %s (%s)' % (item['id'], item['date']))
-                    try:
-                        items_list+=[self.process_item(self.table_obj.objects.get(id=item['id']))]
-                    except Exception, err:
-                        self.logger.critical('Error processing item %s: %s' % (item['id'], err))
-                        continue
-                    if not recent_date and item['date']:
-                        recent_date=item['date']
-                    elif item['date']:
-                        recent_date=max(recent_date, item['date'])
-                            
-                    self.logger.debug(item)
-                try:
-                    self.process_subchunk()
-                except Exception, err:
-                    self.logger.critical('Error processing subchunk: %s' % (err))
-                    
-                time.sleep(self.sleep_seconds_subchunk)
+            
+            if len(chunk_items) + chunk*self.chunk_size>items_count:
+                count_query='SELECT COUNT(*) ' + self.query_from_where
+                self.cursor.execute(count_query)
+                count_response=self.cursor.fetchall()
+                self.logger.debug("==> %s (%s)" % (count_response, count_query))
+                items_count=count_response[0][0]
                 
-                if not self.last_parsed_info:
-                    self.last_parsed_info=dict()
-                self.last_parsed_info["date"]= recent_date
-                self.saveInfo(self.last_parsed_info)
-            else:
-                break
-            self.logger.debug("--->%s" % recent_date)
+                self.logger.debug('count: %s' % items_count)
+    
+            self.logger.debug("items: %s" % len(chunk_items))
             
+            for item in chunk_items:
+                self.logger.debug('item: %s' % (item))
+                try:
+                    items_list+=[self.process_item(self.table_obj.objects.get(id=item))]
+                except Exception, err:
+                    self.logger.critical('Error processing item %s: %s' % (item, err))
+                    continue
+                        
+                self.logger.debug(item)
+
+            try:
+                self.process_subchunk()
+            except Exception, err:
+                self.logger.error('Error processing subchunk: %s' % (err))
+                
+            time.sleep(self.sleep_seconds_subchunk)
+            
+            self.logger.debug("--->%s" % self.chunk_started_at)
+            
+            chunk_items = self.extract_chunk(chunk, items_count)
             chunk+=1
-            
+        
+        self.process_all = False
+        
+                
         if self.item_id:
             items_list=list()
+        else:
+            if not self.last_parsed_info:
+                self.last_parsed_info=dict()
+            self.last_parsed_info["last_start"]= self.chunk_started_at
+            self.saveInfo(self.last_parsed_info)
+
+        
         return (items_list)
         
     def process_item(self, item):
@@ -193,6 +217,8 @@ class Processor(object):
         pass
 
     def process_ended(self):
+        self.cursor.close ()
+        connection.close()
         self.logger.debug("process ended")
         pass
 
@@ -231,7 +257,65 @@ SAFE_LOAD=3.0
 CRITICAL_LOAD=7.0
     
 def main():
-    my_proc=Processor("Test", 'entity', 'zzubber', run_forever=False)
+    parser = OptionParser()
+    parser.add_option("-r", 
+                      "--reprocess", 
+                      action="store_true", 
+                      dest="process_all", 
+                      default=False)
+    parser.add_option("-s", 
+                      "--singlerun", 
+                      action="store_false", 
+                      dest="run_forever", 
+                      default=True)
+    parser.add_option("-n", 
+                      "--name", 
+                      action="store", 
+                      dest="processor_name", 
+                      default='Test')
+    parser.add_option("-t", 
+                      "--type", 
+                      action="store", 
+                      dest="type", 
+                      default='user')
+    parser.add_option("-c", 
+                      "--chunk_size", 
+                      action="store", 
+                      dest="chunk_size", 
+                      default=BATCH_ITEMS_CHUNK)
+    parser.add_option("-p", 
+                      "--pause_seconds", 
+                      action="store", 
+                      dest="sleep_seconds", 
+                      default=BATCH_PAUSE_SECONDS)
+    parser.add_option("-l", 
+                      "--logging_level", 
+                      action="store", 
+                      dest="logging_level", 
+                      default='DEBUG')
+    parser.add_option("-q", 
+                      "--sleep_seconds_subchunk", 
+                      action="store", 
+                      dest="sleep_seconds_subchunk", 
+                      default=BATCH_PAUSE_SECONDS_SUBCHUNK)
+    parser.add_option("-i", 
+                      "--item_id", 
+                      action="store", 
+                      dest="item_id", 
+                      default=None)
+    opts, args = parser.parse_args()
+    
+    my_proc=Processor(processor_name=opts.processor_name,
+                        type=opts.type,
+                        chunk_size=int(opts.chunk_size),
+                        sleep_seconds=int(opts.sleep_seconds),
+                        run_forever=opts.run_forever,
+                        logging_level=opts.logging_level,
+                        item_id=opts.item_id,
+                        process_all=opts.process_all,
+                        sleep_seconds_subchunk=int(opts.sleep_seconds_subchunk)
+                        )
     my_proc.loop()
+
 if __name__ == '__main__':
     main()

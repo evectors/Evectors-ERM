@@ -12,6 +12,11 @@ urlpatterns = patterns('',
     (r'^dm/api/', include('erm.datamanager.urls')),
 	)
 
+urlpatterns += patterns('',
+        (r'^api/(?P<path>.*)$', 'django.views.static.serve', 
+            {'document_root': os.path.join(settings.PROJECT_PATH , 'api'), 'show_indexes': True}
+        ),
+    )
 if settings.DEBUG:
     urlpatterns += patterns('',
         (r'^media/(.*)$', 'django.views.static.serve', {'document_root': os.path.join(settings.PROJECT_PATH , 'media')}),

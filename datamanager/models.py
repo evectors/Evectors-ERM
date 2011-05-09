@@ -229,15 +229,20 @@ class Repository(models.Model):
                 connector_obj=CustomConnector("et_custom_%s" % self.entity_type.slug, fl_create_table, fields_desc)
                 return connector_obj
             except Exception, err:
-                raise ApiError(None, 2105, "%s (%s)" % (err, self.kind))
+                raise ApiError(None, 2105, "%s (%s - %s)" % (err, self.kind, path))
             
     def get_record(self, entity_id, attributes="*", cache_life=0, fl_set_cache_date=False):
-        fields_slugs=Field.objects.filter(repository=self).values("slug")
+        fields_slugs=list(Field.objects.filter(repository=self).values_list("slug", flat=True))
+        
+        for item in self.connector().get_remote_attributes():
+            fields_slugs.append(item['slug'])
         fields_list=list()
         atts_list=attributes.split(",")
-        for field in fields_slugs:
-            if atts_list==['*'] or field['slug'] in atts_list:
-                fields_list.append(field['slug'])
+
+        if atts_list==['*']:
+            fields_list=fields_slugs
+        else:
+            fields_list=list(set(fields_slugs).intersection( set(atts_list) ))
 
         connector=self.connector()
         if cache_life!=0 or fl_set_cache_date:

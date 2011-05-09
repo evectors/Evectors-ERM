@@ -43,6 +43,7 @@ admin.site.register(Entity, EntityAdmin)
 
 class EntitySchemedTagAdmin(admin.ModelAdmin):
     list_display = ('id', 'items_count', 'object_type', 'tag', 'schema', 'related')
+    list_filter=('schema',)
 admin.site.register(EntitySchemedTag, EntitySchemedTagAdmin)
 
 #RELATIONSHIPS

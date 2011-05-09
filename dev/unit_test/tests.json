@@ -1,0 +1,248 @@
+[
+	{
+		"url": "/core/api/%s/entity_type/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "POST", 
+		"format": "json"
+		"data":{
+			"slug":"unit-test", 
+			"name":"unit test", 
+			"attributes":[
+				{"slug":"dummy"}
+				]},
+		"format_data":"json",
+		"description": "create unit-test entity type"
+	},
+	{
+		"url": "/core/api/%s/entity_type/slug=unit-test", 
+		"check": {"success": true, "data__len__exact": 1}, 
+		"type": "relative", 
+		"method": "GET", 
+		"format": "json",
+		"description": "extract unit-test entity type"
+	},
+	{
+		"url": "/core/api/%s/entity_type/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "PUT", 
+		"format": "json"
+		"data":{
+			"slug":"unit-test", 
+			"name":"unit test", 
+			"attributes":[
+				{"slug":"url"}
+				]},
+		"format_data":"json",
+		"description": "add an attribute to unit-test entity type"
+	},
+	{
+		"url": "/core/api/%s/entity/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "POST", 
+		"format": "json"
+		"data":{
+			"type":"unit-test", 
+			"slug":"test-entity",
+			"name":"Test Entity" 
+			"attributes":{
+				"dummy":"Goofy",
+				"url":"http://www.google.com"
+					}
+				},
+		"format_data":"json",
+		"description": "add an unit-test entity"
+	},
+	{
+		"url": "/core/api/%s/entity/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "PUT", 
+		"format": "json"
+		"data":{
+			"type":"unit-test", 
+			"slug":"test-entity",
+			"name":"Test Entity" 
+			"attributes":{
+				"dummy":"Donald",
+				"url":"http://www.google.com"
+					}
+				},
+		"format_data":"json",
+		"description": "change unit-test entity"
+	},
+	{
+		"url": "/core/api/%s/entity/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "POST", 
+		"format": "json"
+		"data":{
+			"type":"unit-test", 
+			"slug":"test-entity-2",
+			"name":"Test Entity 2" 
+			"attributes":{
+				"dummy":"Minnie",
+				"url":"http://www.google.com"
+					}
+				},
+		"format_data":"json",
+		"description": "add another unit-test entity"
+	},
+	{
+		"url": "/core/api/%s/entity/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "POST", 
+		"format": "json"
+		"data":{
+			"type":"unit-test", 
+			"slug":"test-entity-3",
+			"name":"Test Entity 3" 
+			"attributes":{
+				"dummy":"Goofy",
+				"url":"http://www.google.com"
+					}
+				},
+		"format_data":"json",
+		"description": "add another unit-test entity"
+	},
+	{
+		"url": "/core/api/%s/entity/type=unit-test", 
+		"check": {"success": true, "data__len__gt": 0}, 
+		"type": "relative", 
+		"method": "GET", 
+		"format": "json",
+		"description": "extract unit-test entities"
+	},
+	{
+		"url": "/core/api/%s/entity/type=unit-test;compact=0;return_attrs=*", 
+		"check": {"success": true, "data[0].attributes.dummy": "Donald"}, 
+		"type": "relative", 
+		"method": "GET", 
+		"format": "json",
+		"description": "extract unit-test entities and check attribute value"
+	},
+	{
+		"url": "/core/api/%s/entity/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "PUT", 
+		"format": "json"
+		"data":{
+			"type":"unit-test", 
+			"slug":"test-entity",
+			"name":"Test Entity" 
+			"tags":[{
+				"slug":"test",
+				"weight":1
+					}]
+				},
+		"format_data":"json",
+		"description": "add a tag"
+	},
+	{
+		"url": "/core/api/%s/entity/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "PUT", 
+		"format": "json"
+		"data":{
+			"type":"unit-test", 
+			"slug":"test-entity-2",
+			"name":"Test Entity 2" 
+			"tags":[{
+				"slug":"test",
+				"weight":3,
+				"schema":"http://www.example.com/schema"
+					}{
+				"slug":"paris",
+				"name":"Paris",
+				"weight":3,
+				"schema":"http://www.example.com/schema"
+					}]
+				},
+		"format_data":"json",
+		"description": "add a schemed tag"
+	},
+	{
+		"url": "/core/api/%s/entity/type=unit-test;tags=test", 
+		"check": {"success": true, "data__len__exact": 2}, 
+		"type": "relative", 
+		"method": "GET", 
+		"format": "json",
+		"description": "extract unit-test entities filtering by tags"
+	},{
+		"url": "/core/api/%s/entity/type=unit-test;tags=test{http%253A%252F%252Fwww.example.com%252Fschema}", 
+		"check": {"success": true, "data__len__exact": 1}, 
+		"type": "relative", 
+		"method": "GET", 
+		"format": "json",
+		"description": "extract unit-test entities filtering by tags"
+	},{
+		"url": "/core/api/%s/entity/type=unit-test;sort=-tag:test;return_attrs=*", 
+        "check": {"success": true, "data[0].attributes.dummy": "Minnie"}, 		
+        "type": "relative", 
+		"method": "GET", 
+		"format": "json",
+		"description": "extract unit-test entities sorting by reverse tag weight"
+	},{
+		"url": "/core/api/%s/tag/slug=paris;schema=http%253A%252F%252Fwww.example.com%252Fschema", 
+        "check": {"success": true, "data[0]": "Paris"}, 		
+        "type": "relative", 
+		"method": "GET", 
+		"format": "json",
+		"description": "extract unit-test entities sorting by reverse tag weight"
+	},{
+		"url": "/core/api/%s/rel_type/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "POST", 
+		"format": "json",
+		"data":{
+			"slug":"test-rel"
+				},
+		"format_data":"json",
+		"description": "add a relationship type"
+	},
+	{
+		"url": "/core/api/%s/relationship/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "POST", 
+		"format": "json",
+		"data":{
+			"entity_from":"test-entity",
+			"entity_from_type":"unit-test",
+			"entity_to":"test-entity-2",
+			"entity_to_type":"unit-test",
+			"rel_type":"test-rel"
+				},
+		"format_data":"json",
+		"description": "relate the two entities"
+	},
+	{
+		"url": "/core/api/%s/rel_type/slug=test-rel", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "DELETE", 
+		"format": "json"
+	},
+	{
+		"url": "/core/api/%s/entity/type=unit-test;slug=test-entity", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "DELETE", 
+		"format": "json"
+	},
+	{
+		"url": "/core/api/%s/entity_type/slug=unit-test", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "DELETE", 
+		"format": "json"
+	}
+	
+]

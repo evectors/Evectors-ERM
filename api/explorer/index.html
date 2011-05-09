@@ -1,5 +1,5 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<!-- ERM API Explorer - created by Marc Barrot - version 1.0.1 - last modified 4/12/2011 by MB - Copyright (c) 2011 Evectors Ltd. -->
+<!-- ERM API Explorer - created by Marc Barrot - version 1.0.3 - last modified 5/9/2011 by MB - Copyright (c) 2011 Evectors Ltd. -->
 <html>
 	<head>
 		<title>ERM API Explorer</title>
@@ -27,6 +27,8 @@
 					<div>Get/add/modify/delete relationship types</div></a></li>
 					<li><a href="#" id="relationship">relationship
 					<div>Get, add, modify or delete relationships</div></a></li>
+					<li><a href="#" id="custom">other methods
+					<div>Specify your own method and parameters</div></a></li>
 				</ul>
 			</div>
 			<div id="params">
@@ -35,12 +37,12 @@
 					<div id="entity_type_p" class="panel">
 						<div class="req">
 							<span class="t">request type =&nbsp;</span>
-							<input type="radio" name="request" class="get" id="entity_type_p_default" value="GET" title="retrieve entity type"><label for="get" title="retrieve entity type">GET</label>
-							<input type="radio" name="request" class="post" value="POST" title="create entity type"><label for="post" title="create entity type">POST<span>/add</span></label>
-							<input type="radio" name="request" class="put" value="PUT" title="update entity type"><label for="put" title="update entity type">PUT<span>/modify</span></label>
-							<input type="radio" name="request" class="delete" value="DELETE" title="delete entity type"><label for="delete" title="delete entity type">DELETE</label>
+							<input type="radio" name="request" class="get" id="entity_type_r_get" value="GET" title="retrieve entity type"><label for="get" title="retrieve entity type">GET</label>
+							<input type="radio" name="request" class="post" id="entity_type_r_post" value="POST" title="create entity type"><label for="post" title="create entity type">POST<span>/add</span></label>
+							<input type="radio" name="request" class="put" id="entity_type_r_put" value="PUT" title="update entity type"><label for="put" title="update entity type">PUT<span>/modify</span></label>
+							<input type="radio" name="request" class="delete" id="entity_type_r_delete" value="DELETE" title="delete entity type"><label for="delete" title="delete entity type">DELETE</label>
 						</div>
-						<div  id="entity_type_p_get" class="cmd">
+						<div id="entity_type_p_get" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">slug =&nbsp;</td>
@@ -62,9 +64,13 @@
 									<td class="c1">count =&nbsp;</td>
 									<td><input type="text" name="count" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="entity_type_p_get_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
-						<div  id="entity_type_p_post" class="cmd">
+						<div id="entity_type_p_post" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">* slug =&nbsp;</td>
@@ -82,9 +88,13 @@
 									<td class="c1">repository_kind =&nbsp;</td>
 									<td><input type="text" name="repository_kind" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="entity_type_p_post_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
-						<div  id="entity_type_p_put" class="cmd">
+						<div id="entity_type_p_put" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">* slug =&nbsp;</td>
@@ -98,29 +108,37 @@
 									<td class="c1">attributes =&nbsp;</td>
 									<td><input type="text" name="attributes" value="" class="def dict"></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="entity_type_p_put_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
-						<div  id="entity_type_p_delete" class="cmd">
+						<div id="entity_type_p_delete" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">* slug =&nbsp;</td>
 									<td><input type="text" name="slug" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="entity_type_p_delete_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
 						<div class="exec">
+							* required parameter&nbsp; - &nbsp;<a href="#" id="entity_type_p_more" class="more">more parameters</a>
 							<input type="button" name="entity_type_p_send" id="entity_type_p_send" value="send request">
-							<a href="http://evecto.rs/ed3lnq" target="_blank">view entity_type documentation</a>
-							* required parameter
+							<a href="http://evecto.rs/ed3lnq" target="_blank" class="doc">view entity_type documentation</a>
 						</div>
 					</div>
 					<div id="entity_p" class="panel">
 						<div class="req">
 							<span class="t">request type =&nbsp;</span>
-							<input type="radio" name="request" class="get" id="entity_p_default" value="GET" title="retrieve entity"><label for="get" title="retrieve entity">GET</label>
-							<input type="radio" name="request" class="post" value="POST" title="create entity"><label for="post" title="create entity">POST<span>/add</span></label>
-							<input type="radio" name="request" class="put" value="PUT" title="update entity"><label for="put" title="update entity">PUT<span>/modify</span></label>
-							<input type="radio" name="request" class="delete" value="DELETE" title="delete entity"><label for="delete" title="delete entity">DELETE</label>
+							<input type="radio" name="request" class="get" id="entity_r_get" value="GET" title="retrieve entity"><label for="get" title="retrieve entity">GET</label>
+							<input type="radio" name="request" class="post" id="entity_r_post" value="POST" title="create entity"><label for="post" title="create entity">POST<span>/add</span></label>
+							<input type="radio" name="request" class="put" id="entity_r_put" value="PUT" title="update entity"><label for="put" title="update entity">PUT<span>/modify</span></label>
+							<input type="radio" name="request" class="delete" id="entity_r_delete" value="DELETE" title="delete entity"><label for="delete" title="delete entity">DELETE</label>
 						</div>
 						<div id="entity_p_get" class="cmd">
 							<table>
@@ -175,6 +193,10 @@
 								<tr>
 									<td class="c1">sort =&nbsp;</td>
 									<td><input type="text" name="sort" value=""></td>
+								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="entity_p_get_more"></textarea></td>
 								</tr>
 							</table>
 						</div>
@@ -236,6 +258,10 @@
 									<td class="c1">entity_union =&nbsp;</td>
 									<td><input type="text" name="entity_union" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="entity_p_post_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
 						<div id="entity_p_put" class="cmd">
@@ -292,6 +318,10 @@
 									<td class="c1">entity_union =&nbsp;</td>
 									<td><input type="text" name="entity_union" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="entity_p_put_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
 						<div id="entity_p_delete" class="cmd">
@@ -304,23 +334,27 @@
 									<td class="c1">* slug =&nbsp;</td>
 									<td><input type="text" name="slug" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="entity_p_delete_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
 						<div class="exec">
+							* required parameter&nbsp; - &nbsp;<a href="#" id="entity_p_more" class="more">more parameters</a>
 							<input type="button" name="entity_p_send" id="entity_p_send" value="send request">
-							<a href="http://evecto.rs/i70y9w" target="_blank">view entity documentation</a>
-							* required parameter
+							<a href="http://evecto.rs/i70y9w" target="_blank" class="doc">view entity documentation</a>
 						</div>
 					</div>
 					<div id="rel_type_p" class="panel">
 						<div class="req">
 							<span class="t">request type =&nbsp;</span>
-							<input type="radio" name="request" class="get" id="rel_type_p_default" value="GET" title="retrieve relation type"><label for="get" title="retrieve relation type">GET</label>
-							<input type="radio" name="request" class="post" value="POST" title="create relation type"><label for="post" title="create relation type">POST<span>/add</span></label>
-							<input type="radio" name="request" class="put" value="PUT" title="update relation type"><label for="put" title="update relation type">PUT<span>/modify</span></label>
-							<input type="radio" name="request" class="delete" value="DELETE" title="delete relation type"><label for="delete" title="delete relation type">DELETE</label>
+							<input type="radio" name="request" class="get" id="rel_type_r_get" value="GET" title="retrieve relation type"><label for="get" title="retrieve relation type">GET</label>
+							<input type="radio" name="request" class="post" id="rel_type_r_post" value="POST" title="create relation type"><label for="post" title="create relation type">POST<span>/add</span></label>
+							<input type="radio" name="request" class="put" id="rel_type_r_put" value="PUT" title="update relation type"><label for="put" title="update relation type">PUT<span>/modify</span></label>
+							<input type="radio" name="request" class="delete" id="rel_type_r_delete" value="DELETE" title="delete relation type"><label for="delete" title="delete relation type">DELETE</label>
 						</div>
-						<div  id="rel_type_p_get" class="cmd">
+						<div id="rel_type_p_get" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">slug =&nbsp;</td>
@@ -346,9 +380,13 @@
 									<td class="c1">count =&nbsp;</td>
 									<td><input type="text" name="count" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="rel_type_p_get_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
-						<div  id="rel_type_p_post" class="cmd">
+						<div id="rel_type_p_post" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">* slug =&nbsp;</td>
@@ -370,9 +408,13 @@
 									<td class="c1">reciprocated =&nbsp;</td>
 									<td><input type="text" name="reciprocated" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="rel_type_p_post_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
-						<div  id="rel_type_p_put" class="cmd">
+						<div id="rel_type_p_put" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">* slug =&nbsp;</td>
@@ -398,9 +440,13 @@
 									<td class="c1">reciprocated =&nbsp;</td>
 									<td><input type="text" name="reciprocated" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="rel_type_p_put_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
-						<div  id="rel_type_p_delete" class="cmd">
+						<div id="rel_type_p_delete" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">* slug =&nbsp;</td>
@@ -410,47 +456,43 @@
 									<td class="c1">or * id =&nbsp;</td>
 									<td><input type="text" name="id" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="rel_type_p_delete_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
 						<div class="exec">
+							* required parameter&nbsp; - &nbsp;<a href="#" id="rel_type_p_more" class="more">more parameters</a>
 							<input type="button" name="rel_type_p_send" id="rel_type_p_send" value="send request">
-							<a href="http://evecto.rs/fsXxk5" target="_blank">view rel_type documentation</a>
-							* required parameter
+							<a href="http://evecto.rs/fsXxk5" target="_blank" class="doc">view rel_type documentation</a>
 						</div>
 					</div>
 					<div id="relationship_p" class="panel">
 						<div class="req">
 							<span class="t">request type =&nbsp;</span>
-							<input type="radio" name="request" class="get" id="relationship_p_default" value="GET" title="retrieve relationship"><label for="get" title="retrieve relationship">GET</label>
-							<input type="radio" name="request" class="post" value="POST" title="create relationship"><label for="post" title="create relationship">POST<span>/add</span></label>
-							<input type="radio" name="request" class="put" value="PUT" title="update relationship"><label for="put" title="update relationship">PUT<span>/modify</span></label>
-							<input type="radio" name="request" class="delete" value="DELETE" title="delete relationship"><label for="delete" title="delete relationship">DELETE</label>
+							<input type="radio" name="request" class="get" id="relationship_r_get" value="GET" title="retrieve relationship"><label for="get" title="retrieve relationship">GET</label>
+							<input type="radio" name="request" class="post" id="relationship_r_post" value="POST" title="create relationship"><label for="post" title="create relationship">POST<span>/add</span></label>
+							<input type="radio" name="request" class="put" id="relationship_r_put" value="PUT" title="update relationship"><label for="put" title="update relationship">PUT<span>/modify</span></label>
+							<input type="radio" name="request" class="delete" id="relationship_r_delete" value="DELETE" title="delete relationship"><label for="delete" title="delete relationship">DELETE</label>
 						</div>
-						<div  id="relationship_p_get" class="cmd">
+						<div id="relationship_p_get" class="cmd">
 							<table>
 								<tr>
-									<td class="c1">* rel_type =&nbsp;</td>
+									<td class="c1">rel_type =&nbsp;</td>
 									<td><input type="text" name="rel_type" value=""></td>
 								</tr>
 								<tr>
-									<td class="c1">entity_from =&nbsp;</td>
+									<td class="c1">* entity_from =&nbsp;</td>
 									<td><input type="text" name="entity_from" value=""></td>
-								</tr>
-								<tr>
-									<td class="c1">entity_from_uid =&nbsp;</td>
-									<td><input type="text" name="entity_from_uid" value=""></td>
 								</tr>
 								<tr>
 									<td class="c1">entity_from_type =&nbsp;</td>
 									<td><input type="text" name="entity_from_type" value=""></td>
 								</tr>
 								<tr>
-									<td class="c1">entity_to =&nbsp;</td>
+									<td class="c1">or * entity_to =&nbsp;</td>
 									<td><input type="text" name="entity_to" value=""></td>
-								</tr>
-								<tr>
-									<td class="c1">entity_to_uid =&nbsp;</td>
-									<td><input type="text" name="entity_to_uid" value=""></td>
 								</tr>
 								<tr>
 									<td class="c1">entity_to_type =&nbsp;</td>
@@ -480,9 +522,13 @@
 									<td class="c1">sort =&nbsp;</td>
 									<td><input type="text" name="sort" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="relationship_p_get_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
-						<div  id="relationship_p_post" class="cmd">
+						<div id="relationship_p_post" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">* rel_type =&nbsp;</td>
@@ -508,9 +554,13 @@
 									<td class="c1">tags =&nbsp;</td>
 									<td><input type="text" name="tags" value="" class="def dict"></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="relationship_p_post_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
-						<div  id="relationship_p_put" class="cmd">
+						<div id="relationship_p_put" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">* rel_type =&nbsp;</td>
@@ -536,20 +586,82 @@
 									<td class="c1">tags =&nbsp;</td>
 									<td><input type="text" name="tags" value="" class="def dict"></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="relationship_p_put_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
-						<div  id="relationship_p_delete" class="cmd">
+						<div id="relationship_p_delete" class="cmd">
 							<table>
 								<tr>
 									<td class="c1">id =&nbsp;</td>
 									<td><input type="text" name="id" value=""></td>
 								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="relationship_p_delete_more"></textarea></td>
+								</tr>
 							</table>
 						</div>
 						<div class="exec">
+							* required parameter&nbsp; - &nbsp;<a href="#" id="relationship_p_more" class="more">more parameters</a>
 							<input type="button" name="relationship_p_send" id="relationship_p_send" value="send request">
-							<a href="http://evecto.rs/gCnFQa" target="_blank">view relationship documentation</a>
+							<a href="http://evecto.rs/gCnFQa" target="_blank" class="doc">view relationship documentation</a>
+						</div>
+					</div>
+					<div id="custom_p" class="panel">
+						<div class="req">
+							<span class="t">request type =&nbsp;</span>
+							<input type="radio" name="request" class="get" id="custom_r_get" value="GET" title="retrieve data"><label for="get" title="retrieve data">GET</label>
+							<input type="radio" name="request" class="post" id="custom_r_post" value="POST" title="create data"><label for="post" title="create data">POST<span>/add</span></label>
+							<input type="radio" name="request" class="put" id="custom_r_put" value="PUT" title="update data"><label for="put" title="update data">PUT<span>/modify</span></label>
+							<input type="radio" name="request" class="delete" id="custom_r_delete" value="DELETE" title="delete data"><label for="delete" title="delete data">DELETE</label>
+						</div>
+						<div>
+							<table>
+								<tr>
+									<td class="c1">* method name =&nbsp;</td>
+									<td><input type="text" name="method" id="custom_method" value=""></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="custom_p_get" class="cmd custom">
+							<table>
+								<tr>
+									<td class="c1 top">parameters =&nbsp;</td>
+									<td><textarea name="more" id="custom_p_get_more" class="custom"></textarea></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="custom_p_post" class="cmd custom">
+							<table>
+								<tr>
+									<td class="c1 top">parameters =&nbsp;</td>
+									<td><textarea name="more" id="custom_p_post_more" class="custom"></textarea></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="custom_p_put" class="cmd custom">
+							<table>
+								<tr>
+									<td class="c1 top">parameters =&nbsp;</td>
+									<td><textarea name="more" id="custom_p_put_more" class="custom"></textarea></td>
+								</tr>
+							</table>
+						</div>
+						<div  id="custom_p_delete" class="cmd custom">
+							<table>
+								<tr>
+									<td class="c1 top">parameters =&nbsp;</td>
+									<td><textarea name="more" id="custom_p_delete_more" class="custom"></textarea></td>
+								</tr>
+							</table>
+						</div>
+						<div class="exec">
 							* required parameter
+							<input type="button" name="custom_p_send" id="custom_p_send" value="send request">
+							<a href="http://evecto.rs/gTZaEe" target="_blank" class="doc">view api documentation</a>
 						</div>
 					</div>
 				</form>

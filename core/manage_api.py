@@ -53,3 +53,24 @@ def entity_connector_action(request, api_key, **params):
 #    return 100
     responder=EntityConnectorAction(request, api_key, params)
     return responder.respond()
+
+class EntityExport(API):
+    def add(self):
+        return mm.entity_export(self.raw_data)
+    def get(self):
+        return mm.entity_export(self.params)
+    def set(self):
+        raise ApiError(None, 105, "PUT")
+    def delete(self):
+        raise ApiError(None, 105, "DELETE")
+def entity_export(request, api_key, **params):
+    responder=EntityExport(request, api_key, params)
+    return responder.respond()
+
+class TagName(API):
+    def get(self):
+        return mm.get_tag(self.params)
+def get_tag_name(request, api_key, **params):
+    responder=TagName(request, api_key, params)
+    return responder.respond()
+

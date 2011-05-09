@@ -7,8 +7,16 @@ import sys
 import time
 import pickle
 import stat
+import md5
+import urllib
 
 from django.utils.encoding import smart_str, smart_unicode, force_unicode
+
+def microtime_slug(time_value=None):
+    if time_value is None:
+        time_value=time.time()
+    time_list = ("%10.6f" % time_value).split('.')
+    return "0-%s00-%s" % (time_list[1], time_list[0])
 
 def string_to_slug(s):    
     raw_data = s
@@ -20,19 +28,21 @@ def string_to_slug(s):
         pass
     return re.sub(r'[^a-z0-9-\.]+', SANITIZE_CHAR, raw_data.lower())#.strip(SANITIZE_CHAR)
 
-def to_unicode(s):
-    return force_unicode(s, strings_only=True)
+def to_unicode(s, strings_only=True):
+    return force_unicode(s, strings_only=strings_only)
 
-def build_text_search(objects, param_name, params_dict, wildchar="*"):
+def build_text_search(objects, param_name, params_dict, wildchar="*", unquote=False):
     if params_dict.has_key(param_name) and params_dict.get(param_name):
         kwargs={}
         arg_name=param_name
         param_value=params_dict.get(param_name)
+        if unquote:
+            param_value=urllib.unquote_plus(param_value)
         if param_value.find(",") >= 0:
             param_values_list=param_value.split(",")
             kwargs["%s__in" % param_name]=param_values_list
         elif param_value.find(wildchar) >= 0:
-            if param_value[:1]==wildchar and param_value[-1:]=='*':
+            if param_value[:1]==wildchar and param_value[-1:]==wildchar:
                 kwargs["%s__icontains" % param_name]=param_value[1:-1]
             elif param_value[:1]==wildchar :
                 kwargs["%s__iendswith" % param_name]=param_value[1:]
@@ -86,7 +96,7 @@ def pickleToFile(fileName, data, dest_dir=PICKLER_DIR):
     if not os.path.exists(dest_dir):
             os.mkdir(dest_dir)
             try:
-                os.chmod(dest_dir, stat.S_IRWXU + stat.S_IRWXG + stat.S_IRWXO)
+                os.chmod(dest_dir, 0775)
             except:
                 pass
     pickleFilePath=os.path.join(dest_dir, fileName)
@@ -94,7 +104,7 @@ def pickleToFile(fileName, data, dest_dir=PICKLER_DIR):
     pickle.dump(data, pickleFile)
     pickleFile.close()
     try:
-        os.chmod(pickleFilePath, stat.S_IRWXU + stat.S_IRWXG + stat.S_IRWXO)
+        os.chmod(pickleFilePath, 0775)
     except:
         pass
 
@@ -144,4 +154,58 @@ def killProcess(processname, sudopass=None):
         return True
     except:
         return False
+
+#==============DictsPlus============#
+def sum_dicts(d1,d2):
+    return dict( (n, d1.get(n, 0)+d2.get(n, 0)) for n in set(d1).union(d2) )
+
+def sort_dict_to_list(d, sortby='key', reverse=False):
+    _item_pos=0
+    if sortby=='value':
+        _item_pos=1
+    _list=d.items()
+    return sorted(_list, key=lambda _item: _item[_item_pos], reverse=reverse)
+        
+class SeriesDict(dict):
+    def __neg__(self):
+        return SeriesDict((key,-value) for key,value in self.items())
+    def __add__(self,other):
+        result = SeriesDict( (n, self.get(n, 0)+other.get(n, 0)) for n in set(self).union(other) )
+        result = SeriesDict((key, value) for key, value in result.items() if value!=0)
+        return result
+    def __sub__(self,other):
+        result = SeriesDict( (n, self.get(n, 0)-other.get(n, 0)) for n in set(self).union(other) )
+        result = SeriesDict((key, value) for key, value in result.items() if value!=0)
+        return result
+    def __mul__(self,other):
+        return SeriesDict( (n, self.get(n, 0)*other.get(n, 0)) for n in set(self).union(other) )        
+    def __div__(self,other):
+        return SeriesDict( (n, self.get(n, 0)/other.get(n, 0)) for n in set(self).union(other) )    
+    def to_sorted_list(self, sortby='key', reverse=False):
+        _item_pos=0
+        if sortby=='value':
+            _item_pos=1
+        _list=self.items()
+        return sorted(_list, key=lambda _item: _item[_item_pos], reverse=reverse)
+        
+#==============Checksum============#
+    
+def obj_checksum(obj, attrslist=None, encoder=None):
+
+    if not attrslist:
+        innerobj=obj
+    else:
+        innerobj=dict()
+        for attr in attrslist:
+            attribute=getattr(obj, attr, None)
+            if attribute:
+                #print attr
+                innerobj[attr]=attribute
+    
+    _pickled=pickle.dumps(innerobj)
+    
+    if encoder is None:
+        return md5.new(_pickled).hexdigest()
+    else:
+        return encoder(_pickled)
 

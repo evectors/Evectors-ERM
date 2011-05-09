@@ -12,10 +12,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 import settings
 
-# if settings.MIXED_DJANGO_ENVIRONMENT:    
-#         import sys
-#         sys.path.insert(0, settings.AGG_MIXED_DJANGO_INSTALL_PATH)
-# 
+if hasattr(settings, 'MIXED_DJANGO_ENVIRONMENT') and settings.MIXED_DJANGO_ENVIRONMENT:    
+        import sys
+        sys.path.insert(0, settings.AGG_MIXED_DJANGO_INSTALL_PATH)
+
 from django.core.management import setup_environ
 setup_environ(settings)
 
@@ -49,22 +49,12 @@ def setupFileAndPermission(the_path):
 class Logger(object):
     """
     This class can be used to manage error logging
-        Instantiating Logger with no args makes logging to be saved to different files according to the 
-        logging level for example:
-            logger=Logger()
-            logger.debug(msg) => msg will be saved to settings defined LOG_DIR/LOG_FILE_NAME.log
-            logger.log(msg) => msg will be saved to settings defined LOG_DIR/LOG_FILE_NAME.log
-            logger.info(msg) => msg will be saved to settings defined LOG_DIR/LOG_FILE_NAME.log
-            logger.warning(msg) => msg will be saved to settings defined LOG_DIR/LOG_FILE_NAME_err.log
-            logger.error(msg) => msg will be saved to settings defined LOG_DIR/LOG_FILE_NAME_err.log
-            logger.critical(msg) => msg will be saved to settings defined LOG_DIR/LOG_FILE_NAME_err.log
-        
         to set a minimal level of logging either change settings DEBUG_LEVEL value or pass the level as
         threshold_level param when instantiating Logger class:
             
             logger=Logger('ERROR') => just logger.error and logger.critical messages will be logged
         
-        to have the log files saved elsewhere but default /var/log/pages/generic_log[_err].log files
+        to have the log files saved elsewhere but default /var/log/pages/generic_log.log files
         either pass log_dir and file_name params, or properly set LOG_DIR and LOG_FILE_NAME in settings
         
         to have the logger ouput to stdoutlog either call the log with fl_tostdoutlog set to True or
@@ -74,9 +64,15 @@ class Logger(object):
         LOG_VERBOSE setting is set to True
     """
      
-    def __init__(self, threshold_level=None, file_name=None, log_dir=None, fl_stdoutlog=None, logger_name=None):
+    def __init__(self, threshold_level=None, file_name=None, log_dir=None, fl_stdoutlog=None, logger_name=None, maxBytes=None):
         if not logger_name:
             logger_name=getattr(settings, "LOG_LOGGER", "pages_logger")
+        self.maxMegas=getattr(settings, "LOG_MAX_MEGABYTES", 1)
+        if maxBytes is None:
+            self.maxBytes=1024*1024*self.maxMegas
+        else:
+            self.maxBytes=maxBytes
+        self.backupCount=getattr(settings, "LOG_BACKUPCOUNT", 5)
         self.verbose=getattr(settings, "LOG_VERBOSE", False)
         init_errs=None
         if not (logger_name in logging.Logger.manager.loggerDict):
@@ -97,30 +93,16 @@ class Logger(object):
                     
                     log_path=log_dir+file_name+".log"
                     setupFileAndPermission(log_path)
-                    log_handler = UniversallyWritableRotatingFileHandler(log_path, maxBytes=1024*1024*20, backupCount=5)
+                    log_handler = UniversallyWritableRotatingFileHandler(log_path, maxBytes=self.maxBytes, backupCount=self.backupCount)
                     log_handler.setFormatter(logging.Formatter(line_format))
-                    logging.getLogger('').addHandler(log_handler)
     
-                    log_path=log_dir+file_name+"_err.log"
-                    setupFileAndPermission(log_path)
-                    err_handler = UniversallyWritableRotatingFileHandler(log_path, maxBytes=1024*1024*20, backupCount=5)
-                    err_handler.setFormatter(logging.Formatter(line_format))
-                    err_handler.setLevel(logging.ERROR)
-                    logging.getLogger('').addHandler(err_handler)
-                    
-                    class FilterLog(logging.Filter):
-                        def __init__(self, name=None): pass
-                        def filter(self, record): 
-                            return record.levelno<=logging.WARNING
-                            
-                    log_filter=FilterLog()
-                    log_handler.addFilter(log_filter)
                 except Exception, err:
                     init_errs="Log initialization error: %s - %s" % (Exception, err)
                     fl_stdoutlog=True
             if fl_stdoutlog:
                 log_handler = logging.StreamHandler(sys.stdout)
                 log_handler.setFormatter(logging.Formatter(line_format))
+            logging.getLogger(logger_name).addHandler(log_handler)
         self.logger = logging.getLogger(logger_name)
         if init_errs:
             try:
@@ -128,6 +110,18 @@ class Logger(object):
             except Exception, err:
                 pass
             
+    def build_msg(self, msg, extra_info=None, do_inspect=False):
+        if extra_info!=None and self.verbose:
+            msg = "%s [%s]" % (msg, extra_info)
+        if do_inspect:
+            stack_inspect=inspect.stack()[1]
+            try:
+                funct=os.path.basename(stack_inspect[1])
+            except Exception, err:
+                funct = 'unknown (%s) - %s' % (err, stack_inspect)
+            msg="%s: %s line %s" % (msg, funct, stack_inspect[2])
+        return msg
+
     def log(self, msg, extra_info=None):
         try:
             if extra_info!=None and self.verbose:

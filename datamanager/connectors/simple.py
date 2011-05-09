@@ -9,7 +9,7 @@ from erm.settings import *
 from erm.lib.api import ApiError, ERROR_CODES
 from django.utils.encoding import smart_str, smart_unicode
 
-from lib.logger import Logger   
+from erm.lib.logger import Logger   
 
 INIT_STATEMENTS = ("SET NAMES UTF8", 
                    "SET AUTOCOMMIT = 0", 
@@ -125,12 +125,12 @@ def value_encode_to_query(obj, field_type=None):
                 if obj!=None and obj!="":
                     return "%s" % int(obj)
                 else:
-                    return None
+                    return "NULL"
             elif field_type=='double':
                 if obj!=None and obj!="":
                     return "%s" % float(obj)
                 else:
-                    return None
+                    return "NULL"
             elif field_type=='tinyint(1)':
                 return bool(obj)
             elif field_type=='datetime':
@@ -288,6 +288,7 @@ class SimpleDbConnector(Connector):
             else:
                 self.cursor.execute(QUERY_ALL_FIELDS % (DM_DATABASE_NAME, self.object_name))
             items=self.cursor.fetchall()
+            
             for field_name in items:
                 if field_name[0]!="entity_id":
                     self.del_field(field_name[0])
@@ -405,8 +406,10 @@ class SimpleDbConnector(Connector):
             fields_types=self.get_fields_types()
             for key, value in params_dict.items():
                 wheres.append("%s=%s" % (key, value_encode_to_query(value, fields_types[key])))
-            self.cursor.execute(QUERY_COUNT_RECORDS % (DM_DATABASE_NAME, self.object_name, " ".join(wheres)))
-            return self.cursor.fetchone()[0]>0
+            query=QUERY_COUNT_RECORDS % (DM_DATABASE_NAME, self.object_name, " ".join(wheres))
+            self.cursor.execute(query)
+            cnt=self.cursor.fetchone()[0]
+            return cnt>0
         except Exception, err:
             raise ApiError(None, 3101, err)
     

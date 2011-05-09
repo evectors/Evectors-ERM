@@ -1,4 +1,5 @@
 from django.conf.urls.defaults import *
+from django.conf import settings
 from erm.settings import *
 
 urlpatterns = patterns('erm.core.entity_api',
@@ -38,11 +39,22 @@ urlpatterns += patterns('erm.core.manage_api',
     (r'^(?P<api_key>[0-9a-zA-Z]{%s})/search/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'search'),
     (r'^(?P<api_key>[0-9a-zA-Z]{%s})/get_related_entities/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'get_related_entities'),
     (r'^(?P<api_key>[0-9a-zA-Z]{%s})/entity_connector_action/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'entity_connector_action'),
+    (r'^(?P<api_key>[0-9a-zA-Z]{%s})/tag/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'get_tag_name'),
+    (r'^(?P<api_key>[0-9a-zA-Z]{%s})/entity_export/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'entity_export'),
 )
 
 urlpatterns += patterns('erm.core.activity_api',
     #activity_entry
     (r'^(?P<api_key>[0-9a-zA-Z]{%s})/activity/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'activity'),
+)
+
+urlpatterns += patterns('erm.core.series_api',
+    #activity_entry
+    (r'^(?P<api_key>[0-9a-zA-Z]{%s})/series_today/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'series_today'),
+    (r'^(?P<api_key>[0-9a-zA-Z]{%s})/series_history/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'series_history'),
+    (r'^(?P<api_key>[0-9a-zA-Z]{%s})/series_current/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'series_current'),
+    (r'^(?P<api_key>[0-9a-zA-Z]{%s})/series_rule/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'series_rule'),
+    (r'^(?P<api_key>[0-9a-zA-Z]{%s})/series_keys/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'series_keys'),
 )
 
 ####Dev patterns
