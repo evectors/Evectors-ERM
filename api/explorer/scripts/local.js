@@ -1,7 +1,7 @@
 /*
 	ERM API Explorer front-end code
-	version 1.0.3
-	last modified 5/6/2011 by MB
+	version 1.0.4
+	last modified 5/12/2011 by MB
 	Copyright (c) 2011 Evectors Ltd.
 */
 
@@ -16,7 +16,17 @@ var args = {																						// API explorer arguments
 
 			for (var i = 0; i < couples.length; i++) {												// loop thru all name/value couples
 				var members = couples[i].split ('=');
-				this[members[0].replace (/^\#/, '')] = decodeURIComponent (members[1]).toLowerCase ();	// set argument while trimming leading ?
+
+				try {																				// try parsing parameter
+					var name = members[0].replace (/^\#/, '');										// canonize parameter name
+					this[name] = '';
+
+					for (var j = 1; j < members.length; j++) {										// HACK: catch any overzealous URIcomponent decoding by Firefox
+						this[name] += ((j > 1) ? '=' : '') + decodeURIComponent (members[j]).toLowerCase ();
+					}
+				} catch (e) {																		// output error message if any
+					request.display_result ('Invalid parameter syntax for "' + couples[i] + '" - ' + e);
+				}
 			}
 		}
 	}																			// initialize from location object
@@ -461,7 +471,12 @@ var request = {																						// api request object
 			},
 
 			error: function (XMLHttpRequest, textStatus, errorThrown) {
-				request.display_result (textStatus + ': ' + errorThrown);
+
+				if (XMLHttpRequest.status == 400 || XMLHttpRequest.status == 500) {
+					request.display_html_error (XMLHttpRequest.responseText);
+				} else {
+					request.display_result (textStatus + ': ' + errorThrown);
+				}
 			}
 		});
 	},																		// send request to back-end
@@ -469,6 +484,20 @@ var request = {																						// api request object
 	display_result: function (result) {																// display request result
 		document.getElementById ('result').innerHTML = '<pre>' + result + '</pre>';
 	},														// display request result
+
+	display_html_error: function (html) {															// display error html contents in iframe
+		var frame = document.getElementById ('errorFrame');											// locate iframe
+
+		if (! frame) {																				// create if non existent. display properties set up in css stylesheet
+			frame = document.createElement ('iframe');
+			frame.id = 'errorFrame';
+		}
+
+		var result = document.getElementById ('result');											// locate result display element
+		result.innerHTML = '';
+		result.appendChild (frame);																	// insert iframe
+		frame.contentDocument.write (html);															// update iframe contents with html error message
+	},														// display error html contents in iframe
 
 	update_location: function () {
 		var panel = document.getElementById (selector.selected + '_p_' + pane.selected);

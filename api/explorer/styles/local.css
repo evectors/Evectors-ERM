@@ -1,7 +1,7 @@
 /*
 	ERM API Explorer stylesheet
 	version 1.0.4
-	last modified 5/4/2011 by MB
+	last modified 5/12/2011 by MB
 	Copyright (c) 2011 Evectors Ltd.
 */
 
@@ -253,6 +253,14 @@ DIV.inter A {
 	border-bottom: 1px solid #c9d7f1;
 	padding: 10px;
 	overflow: auto;
+}
+
+#errorFrame {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	width: 100%;
+	height: 100%;
 }
 
 #foot {
