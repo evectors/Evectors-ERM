@@ -1,5 +1,5 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<!-- ERM API Explorer - created by Marc Barrot - version 1.0.3 - last modified 5/9/2011 by MB - Copyright (c) 2011 Evectors Ltd. -->
+<!-- ERM API Explorer - created by Marc Barrot - version 1.0.4 - last modified 5/13/2011 by MB - Copyright (c) 2011 Evectors Ltd. -->
 <html>
 	<head>
 		<title>ERM API Explorer</title>
@@ -25,6 +25,8 @@
 					<div>Get, add, modify or delete entites</div></a></li>
 					<li><a href="#" id="rel_type">rel_type
 					<div>Get/add/modify/delete relationship types</div></a></li>
+					<li><a href="#" id="rel_type_allowed">rel_type_allowed
+					<div>Get/add/delete allowed rel. types</div></a></li>
 					<li><a href="#" id="relationship">relationship
 					<div>Get, add, modify or delete relationships</div></a></li>
 					<li><a href="#" id="custom">other methods
@@ -466,6 +468,87 @@
 							* required parameter&nbsp; - &nbsp;<a href="#" id="rel_type_p_more" class="more">more parameters</a>
 							<input type="button" name="rel_type_p_send" id="rel_type_p_send" value="send request">
 							<a href="http://evecto.rs/fsXxk5" target="_blank" class="doc">view rel_type documentation</a>
+						</div>
+					</div>
+					<div id="rel_type_allowed_p" class="panel">
+						<div class="req">
+							<span class="t">request type =&nbsp;</span>
+							<input type="radio" name="request" class="get" id="rel_type_allowed_r_get" value="GET" title="retrieve relation type"><label for="get" title="retrieve relation type">GET</label>
+							<input type="radio" name="request" class="post" id="rel_type_allowed_r_post" value="POST" title="create relation type"><label for="post" title="create relation type">POST<span>/add</span></label>
+							<input type="radio" name="request" class="delete" id="rel_type_allowed_r_delete" value="DELETE" title="delete relation type"><label for="delete" title="delete relation type">DELETE</label>
+						</div>
+						<div id="rel_type_allowed_p_get" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">rel_type =&nbsp;</td>
+									<td><input type="text" name="rel_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">entity_from_type =&nbsp;</td>
+									<td><input type="text" name="entity_from_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">entity_to_type =&nbsp;</td>
+									<td><input type="text" name="entity_to_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">offset =&nbsp;</td>
+									<td><input type="text" name="offset" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">limit =&nbsp;</td>
+									<td><input type="text" name="limit" value=""></td>
+								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="rel_type_allowed_p_get_more"></textarea></td>
+								</tr>
+							</table>
+						</div>
+						<div id="rel_type_allowed_p_post" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* rel_type =&nbsp;</td>
+									<td><input type="text" name="rel_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_from_type =&nbsp;</td>
+									<td><input type="text" name="entity_from_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_to_type =&nbsp;</td>
+									<td><input type="text" name="entity_to_type" value=""></td>
+								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="rel_type_allowed_p_post_more"></textarea></td>
+								</tr>
+							</table>
+						</div>
+						<div id="rel_type_allowed_p_delete" class="cmd">
+							<table>
+								<tr>
+									<td class="c1">* rel_type =&nbsp;</td>
+									<td><input type="text" name="rel_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_from_type =&nbsp;</td>
+									<td><input type="text" name="entity_from_type" value=""></td>
+								</tr>
+								<tr>
+									<td class="c1">* entity_to_type =&nbsp;</td>
+									<td><input type="text" name="entity_to_type" value=""></td>
+								</tr>
+								<tr class="nd">
+									<td class="c1 top">more =&nbsp;</td>
+									<td><textarea name="more" id="rel_type_allowed_p_delete_more"></textarea></td>
+								</tr>
+							</table>
+						</div>
+						<div class="exec">
+							* required parameter&nbsp; - &nbsp;<a href="#" id="rel_type_allowed_p_more" class="more">more parameters</a>
+							<input type="button" name="rel_type_allowed_p_send" id="rel_type_allowed_p_send" value="send request">
+							<a href="http://evecto.rs/miAGRd" target="_blank" class="doc">view rel_type_allowed documentation</a>
 						</div>
 					</div>
 					<div id="relationship_p" class="panel">
