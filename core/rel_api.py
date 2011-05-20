@@ -5,36 +5,7 @@ from erm.lib.api import *
 
 from erm.settings import *
 
-#===============BOUNCE (dev)=============#
-
-def bounce(request, api_key, **params):
-    
-    #return HttpResponse("%s" % args, mimetype="text/plain")
-    class Bounce_Responder(API):
-
-        def __init__(self, request, api_key, params):
-            super(Bounce_Responder, self).__init__(request, api_key, params)
-            self.validators={'GET':None, 
-                             'POST':None, 
-                             'PUT':None, 
-                             'DEL':None}    
-
-        def get(self):
-            return "get: %s" % self.params
-        
-        def add(self):
-            return  "add: %s" % self.raw_data
-
-        def set(self):
-            return  "set: %s" % self.data
-        
-        def delete(self):
-            return  "delete: %s" % self.params
-    
-    responder=Bounce_Responder(request, api_key, params)
-    return responder.respond()
-
-###===============RELATIONSHIP TYPE ATTRIBUTE=============#
+#===============RELATIONSHIP TYPE ATTRIBUTE=============#
 class RelationshipTypeApi(API):
 
     def __init__(self,request, api_key, params):
@@ -45,7 +16,7 @@ class RelationshipTypeApi(API):
                          'DEL':{'params':['slug']}}    
 
     def get(self):
-        return rel.get_rel_type(self.params)
+        return rel.get_rel_type(self.params, self)
 
     def add(self):
         return rel.add_rel_type(self.raw_data)
@@ -66,21 +37,21 @@ class RelationshipTypeAllowedApi(API):
     def __init__(self,request, api_key, params):
         super(RelationshipTypeAllowedApi, self).__init__(request, api_key, params)
         self.validators={'GET':None, 
-                         'POST':{'args':['rel_type', 'entity_type_from', 'entity_type_to']}, 
-                         'PUT':{'args':['id', 'entity_type_from_id', 'entity_type_to_id']}, 
-                         'DEL':{'params':['id']}}    
+                         'POST':None, #{'args':['rel_type', 'entity_from_type', 'entity_to_type']}, 
+                         'PUT':None, 
+                         'DEL':None}    
 
     def get(self):
-        return rel.get_rel_type_allowed(self.params)
+        return rel.get_rel_type_allowed(self.params, self)
 
     def add(self):
         return rel.add_rel_type_allowed(self.raw_data)
  
     def set(self):
-        return rel.set_rel_type_allowed(self.raw_data)
-    
+        raise ApiError(None, 105, "PUT")
+
     def delete(self):
-        return rel.del_rel_type_allowed(self.params.get('id'), self.params.get('slug'))
+        return rel.del_rel_type_allowed(self.params)
 
 def rel_type_allowed(request, api_key, **params):
     responder=RelationshipTypeAllowedApi(request, api_key, params)
@@ -102,7 +73,7 @@ class RelationshipTagSchemaApi(API):
                          'DEL':{'params':self.check_params}}    
 
     def get(self):
-        return rel.get_rel_tag_schema(self.params)
+        return rel.get_rel_tag_schema(self.params, self)
 
     def add(self):
         return rel.add_rel_tag_schema(self.raw_data)
@@ -132,7 +103,7 @@ class RelationshipTagApi(API):
                          'DEL':{'params':self.check_params}}    
 
     def get(self):
-        return rel.get_rel_tag(self.params)
+        return rel.get_rel_tag(self.params, self)
 
     def add(self):
         return rel.add_rel_tag(self.raw_data)
@@ -164,7 +135,7 @@ class RelationshipApi(API):
                          } 
 
     def get(self):
-        return rel.get_rel(self.params)
+        return rel.get_rel(self.params, self)
 
     def add(self):
         return rel.add_rel(self.raw_data)

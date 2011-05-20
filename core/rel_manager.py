@@ -28,6 +28,8 @@ ERROR_CODES["11311"]="relationship manager: No entity type found"
 ERROR_CODES["11312"]="relationship manager: More entity types found"
 ERROR_CODES["11313"]="relationship manager: Missing object"
 ERROR_CODES["11314"]="relationship manager: Relationship exists"
+ERROR_CODES["11315"]="relationship manager: Relationship not allowed"
+ERROR_CODES["11316"]="relationship manager: Relationship not completely defined"
 #=====================set errors=====================#
 ERROR_CODES["11400"]="relationship manager: Object missing" #200 can also be returned
 ERROR_CODES["11401"]="relationship manager: More objects found"
@@ -35,10 +37,11 @@ ERROR_CODES["11410"]="relationship manager: Can't change"
 #=====================delete errors=====================#
 ERROR_CODES["11500"]="relationship manager: Object missing" #200 can also be returned
 ERROR_CODES["11501"]="relationship manager: More objects found"
+ERROR_CODES["11502"]="relationship manager: Can't delete rel_type_allowed, some relationships of that type already exist"
 #
 ##===============RELATIONSHIP TYPE=============#
 
-def get_rel_type(params):
+def get_rel_type(params, api_obj=None):
     try:
         if params.has_key('c') and params.get('properties')=="1":
             obj=RelationshipType()
@@ -53,16 +56,16 @@ def get_rel_type(params):
         #Insert here additional filtering?
     
         if int(params.get('count', 0))==1:
-            return objects.count()
+            objects_count = objects.count()
+            if api_obj is not None:
+                api_obj.count=objects_count
+            return objects_count
             
         list_offset=max(int(params.get('offset', 0)),0)
         list_limit=max(int(params.get('limit', 20)),1)
         
         result=list(objects[list_offset: list_offset+list_limit])
         
-#         if len(result)==0:
-#             raise ApiError(None, 11200)
-            
         return result
     except Exception, err:
        raise ApiError(None, 11101, err)
@@ -84,10 +87,14 @@ def add_rel_type(params):
                 old_object=RelationshipType.objects.filter(slug=slug)
                 if old_object.count()==0:
                     #TRANSACTION START?
+
+                    status=params.get('status', 'A').upper()
+
                     new_obj=RelationshipType(slug=slug, 
                                              name=name, 
                                              name_reverse=name_reverse, 
-                                             reciprocated=bool(params.get('reciprocated', False)), 
+                                             reciprocated=bool(params.get('reciprocated', False)),
+                                             status=status,
                                              )
                     new_obj.save()
                     return new_obj
@@ -107,34 +114,24 @@ def add_rel_type(params):
 
 def set_rel_type(params):
     try:
-#        transaction.enter_transaction_management()
-#        transaction.managed(True)
         target_obj=get_rel_type({'slug':params.get('slug'), 'id':params.get('id')})
         if len(target_obj)==1:
-                #TRANSACTION START?
             target_obj=target_obj[0]
             target_obj.name=params.get('name', target_obj.name)
             target_obj.name_reverse=params.get('name_reverse', target_obj.name_reverse)
             target_obj.reciprocated=params.get('reciprocated', target_obj.reciprocated)
-            target_obj.status=params.get('status', target_obj.status)
+            target_obj.status=params.get('status', target_obj.status).upper()
             target_obj.save()
-                #TRANSACTION END?
             return target_obj
         elif len(target_obj)==0:
             raise ApiError(None, 11400)
         else:
             raise ApiError(None, 11401)
-#        transaction.commit()
-#        transaction.leave_transaction_management()
     except Exception, err:
-#        transaction.rollback()
-#        transaction.leave_transaction_management()
         raise ApiError(None, 11101, err)
 
 def del_rel_type(params):
     try:
-#        transaction.enter_transaction_management()
-#        transaction.managed(True)
         target_obj=get_rel_type({'slug':params.get('slug'), 'id':params.get('id')})
         if len(target_obj)==1:
             target_obj=target_obj[0]
@@ -153,68 +150,71 @@ def del_rel_type(params):
 #        transaction.leave_transaction_management()
         raise ApiError(None, 11101, err)
     
-##===============RELATIONSHIP TYPE=============#
+##===============RELATIONSHIP TYPE ALLOWED=============#
 
-def get_rel_type_allowed(params):
+def get_rel_type_allowed(params, api_obj=None):
     try:
         if params.has_key('properties') and params.get('properties')=="1":
             obj=RelationshipTypeAllowed()
             return obj.properties()
         
+#----------------------------------old naming compatibility -------------------------------------#
+        if (not params.get('entity_from_type')):
+            params['entity_from_type']=params.get('entity_type_from');
+        if (not params.get('entity_to_type')):
+            params['entity_to_type']=params.get('entity_type_to');
+#-------------------------------------------------------------------------------------------------#
+
         objects=RelationshipTypeAllowed.objects.all()
-        if params.has_key('id') and params.get('id'):
-            objects=objects.filter(id=params.get('id'))
-        #Insert here additional filtering?
         
         try:
-            entity_type_from=get_entity_type({'slug':params.get('entity_type_from'), 'id':params.get('entity_type_from_id')})
-            if len(entity_type_from)==1:
-                objects=objects.filter(entity_type_from__id=entity_type_from[0].id)
-#            else:
-#                objects=objects.filter(entity_type_from__id=0)
+            entity_from_type=get_entity_type({'slug':params.get('entity_from_type')})
+            if len(entity_from_type)==1:
+                objects=objects.filter(entity_type_from__id=entity_from_type[0].id)
         except:
             pass
         
         try:
-            entity_type_to=get_entity_type({'slug':params.get('entity_type_to'), 'id':params.get('entity_type_to_id')})
-            if len(entity_type_to)==1:
-                objects=objects.filter(entity_type_to__id=entity_type_to[0].id)
-#            else:
-#                objects=objects.filter(entity_type_to__id=0)
+            entity_to_type=get_entity_type({'slug':params.get('entity_to_type')})
+            if len(entity_to_type)==1:
+                objects=objects.filter(entity_type_to__id=entity_to_type[0].id)
         except:
             pass
         
         try:
-            rel_type=get_rel_type({'slug':params.get('rel_type'), 'id':params.get('rel_type_id')})
+            rel_type=get_rel_type({'slug':params.get('rel_type')})
             if len(rel_type)==1:
                 objects=objects.filter(rel_type__id=rel_type[0].id)
-#            else:
-#                objects=objects.filter(entity_type_to__id=0)
         except:
             pass
         
         if int(params.get('count', 0))==1:
-            return objects.count()
+            objects_count = objects.count()
+            if api_obj is not None:
+                api_obj.count=objects_count
+            return objects_count
             
         list_offset=max(int(params.get('offset', 0)),0)
         list_limit=max(int(params.get('limit', 20)),1)
         
         result=list(objects[list_offset: list_offset+list_limit])
         
-#         if len(result)==0:
-#             raise ApiError(None, 11200)
-            
         return result
     except Exception, err:
        raise ApiError(None, 11101, err)
 
 def add_rel_type_allowed(params):
     try:
-#        transaction.enter_transaction_management()
-#        transaction.managed(True)
+#----------------------------------old naming compatibility -------------------------------------#
+        if (not params.get('entity_from_type')):
+            params['entity_from_type']=params.get('entity_type_from');
+        if (not params.get('entity_to_type')):
+            params['entity_to_type']=params.get('entity_type_to');
+#-------------------------------------------------------------------------------------------------#
+
         rel_type=None
-        entity_type_from=None
-        entity_type_to=None
+        entity_from_type=None
+        entity_to_type=None
         
         try:
             pass
@@ -225,113 +225,60 @@ def add_rel_type_allowed(params):
                 pass
 
         try:
-            rel_type=get_rel_type({'slug':params.get('rel_type'), 'id':params.get('rel_type_id')})[0]
+            rel_type=get_rel_type({'slug':params.get('rel_type')})[0]
         except:
             pass
         
         try:
-            entity_type_from=get_entity_type({'slug':params.get('entity_type_from'), 'id':params.get('entity_type_from_id')})[0]
+            entity_from_type=get_entity_type({'slug':params.get('entity_from_type')})[0]
         except:
             pass
 
         try:
-            entity_type_to=get_entity_type({'slug':params.get('entity_type_to'), 'id':params.get('entity_type_to_id')})[0]
+            entity_to_type=get_entity_type({'slug':params.get('entity_to_type')})[0]
         except:
             pass
                 
-        if rel_type and entity_type_from and entity_type_to:
-            old_object=RelationshipTypeAllowed.objects.filter(rel_type=rel_type, entity_type_from=entity_type_from, entity_type_to=entity_type_to)
+        if rel_type and entity_from_type and entity_to_type:
+            old_object=RelationshipTypeAllowed.objects.filter(rel_type=rel_type, 
+                                                              entity_type_from=entity_from_type, 
+                                                              entity_type_to=entity_to_type)
             if old_object.count()==0:
-                #TRANSACTION START?
-                new_obj=RelationshipTypeAllowed(rel_type=rel_type, entity_type_from=entity_type_from, entity_type_to=entity_type_to)
+                new_obj=RelationshipTypeAllowed(rel_type=rel_type, 
+                                                entity_type_from=entity_from_type, 
+                                                entity_type_to=entity_to_type)
                 new_obj.save()
-                    
-               #TRANSACTION END?
+                
                 return new_obj
             else:
                 raise ApiError(None, 11300, "%s" % params)
         else:
             raise ApiError(None, 11103, "%s" % params)
-#        transaction.commit()
-#        transaction.leave_transaction_management()
     except Exception, err:
-#        transaction.rollback()
-#        transaction.leave_transaction_management()
-        raise ApiError(None, 11101, err)
-
-def set_rel_type_allowed(params):
-    try:
-#        transaction.enter_transaction_management()
-#        transaction.managed(True)
-        target_obj=get_rel_type_allowed({'id':params.get('id')})
-        if len(target_obj)==1:
-                #TRANSACTION START?
-            target_obj=target_obj[0]
-            
-            entity_type_from=None
-            entity_type_to=None
-            
-            if params.get('entity_type_from') or params.get('entity_type_from_id'):
-                try:
-                    entity_type_from=get_entity_type({'slug':params.get('entity_type_from'), 'id':params.get('entity_type_from_id')})[0]
-                except:
-                    pass
-            else:
-                entity_type_from=target_obj.entity_type_from
-
-            if params.get('entity_type_to') or params.get('entity_type_to_id'):
-                try:
-                    entity_type_to=get_entity_type({'slug':params.get('entity_type_to'), 'id':params.get('entity_type_to_id')})[0]
-                except:
-                    pass
-            else:
-                entity_type_to=target_obj.entity_type_to
-                    
-            if entity_type_from and entity_type_to:
-                target_obj.rel_type=params.get('rel_type', target_obj.rel_type)
-                target_obj.entity_type_from=entity_type_from
-                target_obj.entity_type_to=entity_type_to
-                target_obj.save()
-                #TRANSACTION END?
-                return target_obj
-            else:
-                raise ApiError(None, 11103, "%s" % params)
-        elif len(target_obj)==0:
-            raise ApiError(None, 11400)
-        else:
-            raise ApiError(None, 11401)
-#        transaction.commit()
-#        transaction.leave_transaction_management()
-    except Exception, err:
-#        transaction.rollback()
-#        transaction.leave_transaction_management()
         raise ApiError(None, 11101, err)
 
 def del_rel_type_allowed(params):
     try:
-#        transaction.enter_transaction_management()
-#        transaction.managed(True)
-        target_obj=get_rel_type_allowed({'id':params.get('id')})
+        target_obj=get_rel_type_allowed(params)
         if len(target_obj)==1:
-            target_obj=target_obj[0]
-            target_obj_data=target_obj.to_dict()
-            #if entities of this type exist here we have to delete them
-            target_obj.delete()
-            return target_obj_data
+            current_rels=get_rel(params)
+            if len(current_rels)==0:
+                target_obj=target_obj[0]
+                target_obj_data=target_obj.to_dict()
+                target_obj.delete()
+                return target_obj_data
+            else:
+                raise ApiError(None, 11502, params)
         elif len(target_obj)==0:
-            raise ApiError(None, 11500, name)
+            raise ApiError(None, 11500, params)
         else:
-            raise ApiError(None, 11501, name)
-#        transaction.commit()
-#        transaction.leave_transaction_management()
+            raise ApiError(None, 11501, params)
     except Exception, err:
-#        transaction.rollback()
-#        transaction.leave_transaction_management()
         raise ApiError(None, 11101, err)
 
 #===============RELATIONSHIP TAG SCHEMA=============#    
 
-def get_rel_tag_schema(params):
+def get_rel_tag_schema(params, api_obj=None):
     try:
         objects=RelationshipTagSchema.objects.all()
         if params.has_key('name') and params.get('name'):
@@ -341,7 +288,10 @@ def get_rel_tag_schema(params):
         #Insert here additional filtering
     
         if int(params.get('count', 0))==1:
-            return objects.count()
+            objects_count = objects.count()
+            if api_obj is not None:
+                api_obj.count=objects_count
+            return objects_count
             
         list_offset=max(int(params.get('offset', 0)),0)
         list_limit=max(int(params.get('limit', 20)),1)
@@ -386,7 +336,7 @@ def set_rel_tag_schema(params):
         if len(target_obj)==1:
             target_obj=target_obj[0]
             target_obj.label=params.get('label')
-            target_obj.status=params.get('status', target_obj.status)
+            target_obj.status=params.get('status', target_obj.status).upper()
             target_obj.save()
             return target_obj
         elif len(target_obj)==0:
@@ -422,7 +372,7 @@ def del_rel_tag_schema(id=None, schema=None):
 
 #===============RELATIONSHIP TAG=============#    
 
-def get_rel_tag(params):
+def get_rel_tag(params, api_obj = None):
     try:
         objects=EntityTag.objects.all()
         if params.has_key('slug') and params.get('slug'):
@@ -432,7 +382,10 @@ def get_rel_tag(params):
         #Insert here additional filtering
     
         if int(params.get('count', 0))==1:
-            return objects.count()
+            objects_count = objects.count()
+            if api_obj is not None:
+                api_obj.count=objects_count
+            return objects_count
             
         list_offset=max(int(params.get('offset', 0)),0)
         list_limit=max(int(params.get('limit', 20)),1)
@@ -480,7 +433,7 @@ def set_rel_tag(params):
         target_obj=get_rel_tag({'id':params.get('id'), 'slug':params.get('slug')})
         if len(target_obj)==1:
             target_obj=target_obj[0]
-            target_obj.status=params.get('status', target_obj.status)
+            target_obj.status=params.get('status', target_obj.status).upper()
             target_obj.save()
             return target_obj
         elif len(target_obj)==0:
@@ -516,7 +469,7 @@ def del_rel_tag(id=None, slug=None):
 
 ##===============RELATIONSHIP=============#    
 
-def get_rel(params):
+def get_rel(params, api_obj = None):
     try:
         if params.has_key('properties') and params.get('properties')=="1":
             obj=Relationship()
@@ -621,7 +574,10 @@ def get_rel(params):
                     objects=objects.order_by("%s%s" % (sign, sortby))
 
         if int(params.get('count', 0))==1:
-            return objects.count()
+            objects_count = objects.count()
+            if api_obj is not None:
+                api_obj.count=objects_count
+            return objects_count
             
         list_offset=max(int(params.get('offset', 0)),0)
         list_limit=max(int(params.get('limit', 20)),1)
@@ -639,85 +595,91 @@ def get_rel(params):
 
 def add_rel(params):
     try:
-        rel_type=get_rel_type({"id":params.get('rel_type_id'), "slug":params.get('rel_type')})
-        if len(rel_type)==1:
-            rel_type=rel_type[0]
-        else:
-            rel_type=None
-        
+        rel_type_allowed=get_rel_type_allowed(params)
+        if len(rel_type_allowed)==1:
+            rel_type=get_rel_type({"id":params.get('rel_type_id'), "slug":params.get('rel_type')})
+            if len(rel_type)==1:
+                rel_type=rel_type[0]
+            else:
+                rel_type=None
+            
 #--------------------backward compatibility with old not following naming policy parameters--------#
-        if (not params.get('entity_from_type_id')):
-            params['entity_from_type_id']=params.get('entity_type_from_id');
-        if (not params.get('entity_from_type')):
-            params['entity_from_type']=params.get('entity_type_from');
+            if (not params.get('entity_from_type_id')):
+                params['entity_from_type_id']=params.get('entity_type_from_id');
+            if (not params.get('entity_from_type')):
+                params['entity_from_type']=params.get('entity_type_from');
 #-------------------------------------------------------------------------------------------------#
            
-        entity_from=get_entity({"id":params.get('entity_from_id'), "slug":params.get('entity_from'), 'type_id':params.get('entity_from_type_id'), 'type':params.get('entity_from_type')})
-        if len(entity_from)==1:
-            entity_from=entity_from[0]
-        else:
-            entity_from=None
-
+            entity_from=get_entity({"id":params.get('entity_from_id'), "slug":params.get('entity_from'), 'type_id':params.get('entity_from_type_id'), 'type':params.get('entity_from_type')})
+            if len(entity_from)==1:
+                entity_from=entity_from[0]
+            else:
+                entity_from=None
+    
 #--------------------backward compatibility with old not following naming policy parameters--------#
-        if (not params.get('entity_to_type_id')):
-            params['entity_to_type_id']=params.get('entity_type_to_id');
-        if (not params.get('entity_to_type')):
-            params['entity_to_type']=params.get('entity_type_to');
+            if (not params.get('entity_to_type_id')):
+                params['entity_to_type_id']=params.get('entity_type_to_id');
+            if (not params.get('entity_to_type')):
+                params['entity_to_type']=params.get('entity_type_to');
 #-------------------------------------------------------------------------------------------------#
 
-        entity_to=get_entity({"id":params.get('entity_to_id'), "slug":params.get('entity_to'), 'type_id':params.get('entity_to_type_id'), 'type':params.get('entity_to_type')})
-        if len(entity_to)==1:
-            entity_to=entity_to[0]
-        else:
-            entity_to=None
-        
-        #Here we have to validate if relationship is allowed...
-
-        if rel_type and entity_from and entity_to:
-            old_obj=None
-            try:
-                old_obj=Relationship.objects.get(rel_type = rel_type,  
-                                     entity_from = entity_from, 
-                                     entity_to = entity_to)
-            except:
-                pass
-            if old_obj==None:
-                if rel_type.reciprocated:
-                    old_rev_obj=None
-                    try:
-                        old_rev_obj=Relationship.objects.get(rel_type = rel_type,  
-                                             entity_from = entity_to, 
-                                             entity_to = entity_from)
-                    except:
-                        pass
-                    if old_rev_obj==None:
-                        rev_obj=Relationship(rel_type = rel_type,  
-                                             entity_from = entity_to, 
-                                             entity_to = entity_from)
-                        rev_obj.save()
-                        
-                        rev_obj.set_tags(params.get('tags'))
-                    else:
-                        if params.get("skip_existsing_err")!="1":
-                            raise ApiError(None, 11314, params)
-
-                new_obj=Relationship(rel_type = rel_type,  
-                                     entity_from = entity_from, 
-                                     entity_to = entity_to)
-                new_obj.save()
- 
-                new_obj.set_tags(params.get('tags'))
-
-                return new_obj
+            entity_to=get_entity({"id":params.get('entity_to_id'), "slug":params.get('entity_to'), 'type_id':params.get('entity_to_type_id'), 'type':params.get('entity_to_type')})
+            if len(entity_to)==1:
+                entity_to=entity_to[0]
             else:
-                if params.get("skip_existsing_err")!="1":
-                    raise ApiError(None, 11314, params)
-                else:
-                    return old_obj
+                entity_to=None
             
-                
+            status=params.get('status', 'A').upper()
+
+            if rel_type and entity_from and entity_to:
+                old_obj=None
+                try:
+                    old_obj=Relationship.objects.get(rel_type = rel_type,  
+                                         entity_from = entity_from, 
+                                         entity_to = entity_to)
+                except:
+                    pass
+                if old_obj==None:
+                    if rel_type.reciprocated:
+                        old_rev_obj=None
+                        try:
+                            old_rev_obj=Relationship.objects.get(rel_type = rel_type,  
+                                                 entity_from = entity_to, 
+                                                 entity_to = entity_from)
+                        except:
+                            pass
+                        if old_rev_obj==None:
+                            rev_obj=Relationship(rel_type = rel_type,  
+                                                 entity_from = entity_to, 
+                                                 entity_to = entity_from,
+                                                 status=status)
+                            rev_obj.save()
+                            
+                            rev_obj.set_tags(params.get('tags'))
+                        else:
+                            if params.get("skip_existsing_err")!="1":
+                                raise ApiError(None, 11314, params)
+    
+                    new_obj=Relationship(rel_type = rel_type,  
+                                         entity_from = entity_from, 
+                                         entity_to = entity_to,
+                                         status=status)
+                    new_obj.save()
+     
+                    new_obj.set_tags(params.get('tags'))
+    
+                    return new_obj
+                else:
+                    if params.get("skip_existsing_err")!="1":
+                        raise ApiError(None, 11314, params)
+                    else:
+                        return old_obj
+            else:
+                raise ApiError(None, 11313, "%s - %s" % ([rel_type , entity_from , entity_to], params))
+        elif len(rel_type_allowed)==0:
+            raise ApiError(None, 11315, params)
         else:
-            raise ApiError(None, 11313, "%s - %s" % ([rel_type , entity_from , entity_to], params))
+            raise ApiError(None, 11316, params)
     except Exception, err:
 #        transaction.rollback()
 #        transaction.leave_transaction_management()
@@ -744,8 +706,6 @@ def set_rel(params):
         else:
             entity_to=None
         
-        #Here we have to validate if relationship is allowed...
-
         target_obj=list()
         
         if rel_type and entity_from and entity_to:
@@ -759,12 +719,15 @@ def set_rel(params):
                 
 #        target_obj=get_rel(params)
         if len(target_obj)==1:
-            #TRANSACTION?
             target_obj=target_obj[0]
-            #TRANSACTION END?
             
             target_obj.set_tags(params.get('tags'))
             
+            status=params.get('status', target_obj.status).upper()
+            if target_obj.status!=status:
+                target_obj.status=status
+                target_obj.save()
+                
             return target_obj
         elif len(target_obj)==0:
             return add_rel(params)

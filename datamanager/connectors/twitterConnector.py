@@ -6,7 +6,7 @@ import unicodedata
 import hashlib
 
 import urllib, urllib2
-import urlparse
+
 import uuid
 
 import cjson
@@ -19,7 +19,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
 import tweepy
 
 from erm.datamanager.connectors.simple import *
+
+import settings
+
 from erm.settings import *
+
 from erm.lib.api import ApiError, ERROR_CODES
 from django.utils.encoding import smart_str, smart_unicode
 
@@ -29,6 +33,10 @@ from erm.core.entity_manager import get_entity, set_entity, add_entity
 from erm.lib.logger import Logger
 
 import inspect
+
+from urlparse import urlparse
+
+from erm.lib.misc_utils import string_to_slug, microtime_slug
 
 INIT_STATEMENTS = ("SET NAMES UTF8", 
                    "SET AUTOCOMMIT = 0", 
@@ -110,17 +118,92 @@ TW_FIELDS_MAP['time_zone']='string'
 TW_FIELDS_MAP['url']='string'
 TW_FIELDS_MAP['utc_offset']='integer'
 TW_FIELDS_MAP['verified']='boolean'
+TW_FIELDS_MAP['dummy']='boolean'
 
-TW_INNER_RECORDS=[{'slug':'cache_refresh_time', 'kind':'datetime'}, {'slug':'token_key', 'kind':'string'}, {'slug':'token_secret', 'kind':'string'}]
+TW_FIELDS_MAP['user_timeline']='raw_text'
+TW_FIELDS_MAP['friends_timeline']='raw_text'
+TW_FIELDS_MAP['followers']='raw_text'
+TW_FIELDS_MAP['friends_ids']='raw_text'
+TW_FIELDS_MAP['friends']='raw_text'
+
+TW_EXTRA_METHODS_ATTRS=['user_timeline', 'friends_timeline', 'followers', 'friends_ids', 'friends']
+
+TW_INNER_RECORDS=[{'slug':'token_key', 'kind':'string'}, 
+                  {'slug':'token_secret', 'kind':'string'}]
 TW_INNER_FIELDS=[item['slug'] for item in TW_INNER_RECORDS]
 
 CONNECTOR_REMOTE_FIELDS=TW_FIELDS_MAP.keys()
+CONNECTOR_REMOTE_FIELDS_MAP=TW_FIELDS_MAP
 
+#=====================ancillar table sql queries for oauth
+QUERY_CREATE_OAUTH_TABLE="""CREATE TABLE IF NOT EXISTS `%s`.`oauth_tokens` 
+                     (`token` varchar(255) NOT NULL PRIMARY KEY, 
+                      `pickled` blob,
+                      `connector` varchar(255),
+                      `created` datetime); """        
+QUERY_ADD_OAUTH_RECORD="INSERT INTO `%s`.`oauth_tokens` (`token`,`pickled`, `created`, `connector`) VALUES ('%s', '%s', '%s', '%s')"
+QUERY_GET_OAUTH_RECORD="SELECT `pickled` FROM `%s`.`oauth_tokens` WHERE `token`='%s' AND `connector`='%s'"
+QUERY_DELETE_OAUTH_RECORD="DELETE FROM `%s`.`oauth_tokens` WHERE `token`='%s' AND `connector`='%s'"
+
+#=====================
 def json_decode(s):
     h,d,u=cjson.__version__.split(".")
     if (int(h)*100+int(d)*10+int(u))<=105:
         s=s.replace('\/', '/')
     return cjson.decode(s)
+
+STATUS_FIELDS=['favorited', 
+                'geo', 
+                'id', 
+                'id_str', 
+                'in_reply_to_screen_name', 
+                'in_reply_to_status_id', 
+                'in_reply_to_status_id_str', 
+                'in_reply_to_user_id', 
+                'in_reply_to_user_id_str', 
+                'place', 
+                'retweet_count', 
+                'retweeted', 
+                'source', 
+                'source_url', 
+                'text', 
+                'truncated']
+                
+USER_FIELDS = ['id', 
+                'verified', 
+                'profile_sidebar_fill_color', 
+                'profile_text_color', 
+                'followers_count', 
+                'protected', 
+                'location', 
+                'profile_background_color', 
+                'utc_offset', 
+                'statuses_count', 
+                'description', 
+                'friends_count', 
+                'profile_link_color', 
+                'profile_image_url', 
+                'notifications', 
+                'geo_enabled', 
+                'profile_background_image_url', 
+                'name', 
+                'profile_background_tile', 
+                'favourites_count', 
+                'screen_name', 
+                'url', 
+                'time_zone', 
+                'profile_sidebar_border_color', 
+                'following']
+
+
+def obj_to_dict(object, fields_list):
+    result=dict()
+    for key in fields_list:
+        try:
+            result[key]=getattr(object, key)
+        except Exception, err:
+            result[key]="%s" % err
+    return result
 
 class CustomConnector(SimpleDbConnector):
     
@@ -136,43 +219,51 @@ class CustomConnector(SimpleDbConnector):
         self.TEMP_TOKENS_FIELDS={"token":"varchar(255)",
                             "key":"varchar(255)",
                             "secret":"varchar(255)"}
-
+        self.empty_field_descriptor={'status': u'A', 
+                        'kind': u'', 
+                        'unique': False, 
+                        'name': u'', 
+                        'searchable': False, 
+                        'default': u'', 
+                        'editable': False, 
+                        'is_key': False, 
+                        'slug': u'test', 
+                        'blank': True, 
+                        'null': True}
+        self.entity_obj = None
+        
     def get_default_attributes(self):
-        return [{"slug":key, "kind":value} for key,value in TW_FIELDS_MAP.items()]
+        return []#{"slug":key, "kind":value} for key,value in TW_INNER_RECORDS.items()]
 
-    def create_table(self, fields):
+    def get_remote_attributes(self):
+        return [{"slug":key, "kind":value} for key,value in CONNECTOR_REMOTE_FIELDS_MAP.items()]
+
+    def merge_fields(self, fields):
         for _field in TW_INNER_RECORDS:
             if not fields.has_key(_field['slug']):
-                fields[_field['slug']]=_field
-        super(CustomConnector, self).create_table(fields)
+                _complete_field=self.empty_field_descriptor
+                _complete_field.update(_field)
+                fields[_field['slug']]=_complete_field
+        return fields
+    
+    def create_table(self, fields):
+        super(CustomConnector, self).create_table(self.merge_fields(fields))
         
     def update_fields(self, fields):
-        for _field in TW_INNER_RECORDS:
-            if not fields.has_key(_field['slug']):
-                fields[_field['slug']]=_field
-        super(CustomConnector, self).update_fields(fields)
-        
-    def add_record(self, entity_id, attributes):
-        '''Adding a record in this context means IMO:
-            -add the record to the db table
-            -connect to FaceBook
-            -Fetch user info
-            -Populate the record
-            -update the cache_refresh_time field'''
-        inner_attributes={"cache_refresh_time":datetime.datetime.now()}
-        super(CustomConnector, self).add_record(entity_id, inner_attributes)
-        #attributes=self.get_record(entity_id, [item['slug'] for item in self.get_default_attributes()])
-                    
+        super(CustomConnector, self).update_fields(self.merge_fields(fields))
+                                                
     def get_api(self, entity_obj=None, entity_id=None):
         _api=None
+        if not entity_obj:
+            if self.entity_obj is None:
+                self.entity_obj=Entity.objects.get(id=entity_id)
+            entity_obj=self.entity_obj
         credentials = super(CustomConnector, self).get_record(entity_id, TW_INNER_FIELDS)
         if credentials["token_key"] and credentials["token_secret"]:
             auth = self.get_auth()
             auth.set_access_token(credentials["token_key"], credentials["token_secret"])
             _api = tweepy.API(auth)
         if not _api:
-            if not entity_obj:
-                entity_obj=Entity.objects.get(id=entity_id)
             auth=tweepy.BasicAuthHandler(entity_obj.slug, entity_obj.password)
             _api = tweepy.API(auth)
         return _api
@@ -186,51 +277,61 @@ class CustomConnector(SimpleDbConnector):
             self.auth = tweepy.OAuthHandler(consumer_token, consumer_secret)
         return self.auth
             
-    def get_record(self, entity_id, fields_list, cache_life=0, fl_set_cache_date=False):
+    def get_record(self, entity_id, fields_list):
         try:
             if entity_id!="":
                 if len(fields_list):
-                    fl_cache=False
-                    if cache_life>0:
-                        self.cursor.execute(QUERY_GET_RECORD % ('cache_refresh_time', DM_DATABASE_NAME, self.object_name, "entity_id=%s" % entity_id))
-                        fl_cache = self.cursor.fetchall()[0][0]+datetime.timedelta(seconds=cache_life)>datetime.datetime.now()
-                    if not fl_cache:
-                        attributes=dict()
-                        remote_attrs=list()
-                        local_attrs=list()
-                        
-                        for key in fields_list:
-                            if (key in CONNECTOR_REMOTE_FIELDS):
-                                remote_attrs.append(key)
-                            else:
-                                local_attrs.append(key)
-                        
-                        if len(remote_attrs):
-                            api=self.get_api(entity_id=entity_id)
-                            me=api.me()
-                            for key in remote_attrs:
-                                if key!="status":
+                    attributes=dict()
+                    remote_attrs=list()
+                    local_attrs=list()
+                    
+                    for key in fields_list:
+                        if (key in CONNECTOR_REMOTE_FIELDS):
+                            remote_attrs.append(key)
+                        else:
+                            local_attrs.append(key)
+                    
+                    if len(remote_attrs):
+                        api=self.get_api(entity_id=entity_id)
+                        me=api.me()
+                        for key in remote_attrs:
+                            if key in TW_EXTRA_METHODS_ATTRS:
+                                if not 'dummy' in remote_attrs:
+                                    if key in ['user_timeline', 'friends_timeline'] :
+                                        _timeline=getattr(api, key)()
+                                        attributes[key]=cjson.encode(list(obj_to_dict(status, STATUS_FIELDS) for status in _timeline) )
+                                    elif key in ['followers'] :
+                                        _users=getattr(api, key)()
+                                        attributes[key]=cjson.encode(list(obj_to_dict(user, USER_FIELDS) for user in _users) )
+                                    elif key in ['friends_ids']:
+                                        attributes[key]=cjson.encode(getattr(api, key)())
+                                    elif key in ['friends']:
+                                        friends_ids=api.friends_ids()
+                                        friends_array=list()
+                                        for _id in friends_ids:
+                                            try:
+                                                friends_array.append(obj_to_dict(api.get_user(_id), USER_FIELDS))
+                                            except Exception, err:
+                                                friends_array.append("%s" % err )
+                                        attributes[key]=cjson.encode(friends_array)
+                            elif key!="status":
+                                if key!="dummy":
                                     attributes[key]=getattr(me,key)
-                                else:
+                            else:
+                                attributes[key]=""
+                                try:
                                     attributes[key]=getattr(me,key).text
-                            local_db_attrs=attributes
-                            if len(remote_attrs)==len(CONNECTOR_REMOTE_FIELDS) or fl_set_cache_date:
-                                local_db_attrs['cache_refresh_time']=datetime.datetime.now()
-                            super(CustomConnector, self).update_record(entity_id, local_db_attrs)
-                        if len(local_attrs):
-                            for key, value in super(CustomConnector, self).get_record(entity_id, local_attrs):
-                                attributes[key]=value
+                                except Exception, err:
+                                    pass
+#                         local_db_attrs=attributes
+#                         if len(remote_attrs)==len(CONNECTOR_REMOTE_FIELDS) or fl_set_cache_date:
+#                             local_db_attrs['cache_refresh_time']=datetime.datetime.now()
+#                         super(CustomConnector, self).update_record(entity_id, local_db_attrs)
+                    if len(local_attrs):
+                        for key, value in super(CustomConnector, self).get_record(entity_id, local_attrs):
+                            attributes[key]=value
 
-                        return attributes    
-                    else:
-                        return super(CustomConnector, self).get_record(entity_id, fields_list)
-#                        if self.record_exists({"entity_id":entity_id}):
-#                            self.cursor.execute(QUERY_GET_RECORD % ("`,`".join(fields_list), DM_DATABASE_NAME, self.object_name, "entity_id=%s" % entity_id))
-#                            record=[dict(zip(fields_list, row)) for row in self.cursor.fetchall()]
-#                            #record=dict(zip(fields_list, row) for row in self.cursor.fetchall())
-#                            return record[0]
-#                        else:
-#                           raise ApiError(None, 3921, entity_id)
+                    return attributes    
                 else:
                     return dict()
             else:
@@ -238,118 +339,159 @@ class CustomConnector(SimpleDbConnector):
         except Exception, err:
            raise ApiError(None, 3101, err)
 
-    def get_oauth_url(self, entity_id=None, params={'callback_url':None}):
-        QUERY_TABLE_EXISTS='SHOW TABLES LIKE `%s`;'
-        QUERY_CREATE_TABLE="CREATE TABLE `%s`.`%s` (`creation_date` datetime NOT NULL); "        
-        QUERY_ADD_FIELD="ALTER TABLE `%s`.`%s` ADD `%s` %s NOT NULL;"
-        QUERY_CREATE_DB="CREATE DATABASE IF NOT EXISTS %s"
-        QUERY_COUNT_DB="""SELECT count(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='%s';"""
+    def get_oauth_url(self, entity_id=None, params={}):
+        callback_url=params.get('next_url', settings.TWITTER_APP_CALLBACK_URL)
+        decode = params.get('decode', False)
+
+        if decode:
+            callback_url=urllib.unquote(callback_url)
+
+        creation_date=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        auth = self.get_auth(callback_url)
+        redirect_url = auth.get_authorization_url(signin_with_twitter=params.get('mode', settings.TWITTER_APP_OAUTH_MODE)=='authenticate')
+        self.token=redirect_url.split('?oauth_token=')[1]
+        self.key= auth.request_token.key
+        self.secret=auth.request_token.secret
         
-        QUERY_ADD_RECORD="INSERT INTO `%s`.`%s` (`%s`) VALUES (%s);"
-        callback_url=params.get('callback_url')
-        if not callback_url or callback_url=="":
-            raise ApiError(None, 3940)
-        else:
-            creation_date=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            auth = self.get_auth(callback_url)
-            redirect_url = auth.get_authorization_url()
-            self.token=redirect_url.split('?oauth_token=')[1]
-            self.key= auth.request_token.key
-            self.secret=auth.request_token.secret
-            
-            self.cursor.execute(QUERY_COUNT_DB % self.oauth_tokens_db_name)
-            _count=self.cursor.fetchone()[0]
-            if not _count==1:
-                self.do_query(QUERY_CREATE_DB % self.oauth_tokens_db_name)
-                self.do_query(QUERY_CREATE_TABLE % (self.oauth_tokens_db_name, self.oauth_pending_tokens_table_name))
-                for field_key, field_type in self.TEMP_TOKENS_FIELDS.items():
-                    self.do_query(QUERY_ADD_FIELD % (self.oauth_tokens_db_name, self.oauth_pending_tokens_table_name, field_key, field_type))
-            keys=list()
-            values=list()
-            for field_key, field_type in self.TEMP_TOKENS_FIELDS.items():
-                keys.append(field_key)
-                values.append(getattr(self, field_key))
-            keys.append('creation_date')
-            values.append(creation_date)
-            _query = QUERY_ADD_RECORD % (self.oauth_tokens_db_name, 
-                                        self.oauth_pending_tokens_table_name, 
-                                        "`,`".join(keys),
-                                        "'%s'" % ("','".join(values)))
-            self.transaction_start()
-            self.do_query(_query)
-            self.transaction_commit()
-            
-            return redirect_url
- 
-    def oauth_validate_token(self, entity_id=None, params={}):
-        pos=0
+        token_dict=dict()
+        for field_key, field_type in self.TEMP_TOKENS_FIELDS.items():
+            token_dict[field_key]=getattr(self, field_key)
+        token_dict['creation_date']=creation_date
+
         try:
-            QUERY_GET_RECORD="SELECT `%s` FROM `%s`.`%s` WHERE %s;"
-            QUERY_DELETE_RECORD="DELETE FROM `%s`.`%s` WHERE %s"
-            QUERY_UPDATE_RECORD=u'UPDATE `%s`.`%s` SET %s WHERE `entity_id`=%s'
+            query=None
+            _value = cjson.encode(token_dict)
+            self.transaction_start()
+            try:
+                query=QUERY_CREATE_OAUTH_TABLE % (DM_DATABASE_NAME)
+                self.do_query(query)
+            except Exception, err:
+                if not ("already exists" in ("%s" % err)):
+                    Logger().error("Error: %s (%s) - %s" % (err, query, Exception))
+                    raise Exception, err
             
-            oauth_token = params.get('oauth_token')
-            oauth_verifier = params.get('oauth_verifier')
-            _query=QUERY_GET_RECORD % ("`,`".join(self.TEMP_TOKENS_FIELDS.keys()),
-                                       self.oauth_tokens_db_name, 
-                                        self.oauth_pending_tokens_table_name, 
-                                        "token='%s'" % oauth_token)
-            self.cursor.execute(_query)
-            record=[dict(zip(self.TEMP_TOKENS_FIELDS.keys(), row)) for row in self.cursor.fetchall()][0]
+            try:
+                query=QUERY_DELETE_OAUTH_RECORD % (DM_DATABASE_NAME,redirect_url, "twitterConnector")
+                self.do_query(query)
+            except Exception, err:
+                Logger().error("Error: %s (%s)" % (err, query))
+                raise Exception, err
+
+            query=QUERY_ADD_OAUTH_RECORD % (DM_DATABASE_NAME,
+                                      self.token,
+                                      _value, 
+                                      creation_date, 
+                                      "twitterConnector")
+            self.do_query(query)
+
+            self.transaction_commit()
+        except Exception, err:
+            self.transaction_rollback()
+            raise ApiError(None, 3102, "%s (%s): %s - [%s]" % (entity_id, err, query, Exception))
+            
+        return redirect_url
+ 
+    def trace(self, pos):
+        self.logger.debug("%s" % pos)
+        pos+=1
+
+    def oauth_validate_token(self, entity_id=None, params={}):
+        pos=1
+        self.trace(pos)
+        try:
+    
+            tokenized_url = params.get('tokenized_url')
+            decode = params.get('decode', False)
+
+            if decode:
+                tokenized_url=urllib.unquote(tokenized_url)
+            parsed=urlparse(tokenized_url)
+        
+            self.trace(pos)
+            
+            parsed_params=dict([item.split('=')[0], item.split('=')[1]] for item in parsed.query.split('&'))                
+
+            oauth_token = urllib.unquote(parsed_params.get('oauth_token'))
+
+            oauth_verifier = urllib.unquote(parsed_params.get('oauth_verifier'))
+
+            self.trace(pos)
+            
+            self.cursor.execute(QUERY_GET_OAUTH_RECORD % (DM_DATABASE_NAME, oauth_token, "twitterConnector"))
+    
+            record=[dict(zip(['pickled'], row)) for row in self.cursor.fetchall()]
+            record = cjson.decode(record[0].get('pickled'))
+
+            self.trace(pos)
+            
             auth = self.get_auth()
             auth.set_request_token(record['key'],record['secret'])
-            pos+=1
+
             auth.get_access_token(oauth_verifier)
-            pos+=1
-            self.key= auth.access_token.key
-            pos+=1
-            self.secret=auth.access_token.secret
-            pos+=1
-            auth.set_access_token(self.key, self.secret)
-            pos+=1
-            api = tweepy.API(auth)
-            pos+=1
-            _query=QUERY_DELETE_RECORD % (self.oauth_tokens_db_name, 
-                                          self.oauth_pending_tokens_table_name, 
-                                          "token='%s'" % oauth_token)
-            self.transaction_start()
-            self.cursor.execute(_query)
-            self.transaction_commit()
-            pos+=1
-            me =api.me()
-            pos+=1
-            my_id=getattr(me,'id')
-            pos+=1
-            entity_type=self.object_name.split("_")[-1]
-            pos+=1
-            attributes={"token_key":self.key, "token_secret":self.secret}
-            my_entity=get_entity({"slug":str(my_id), "type":entity_type})
-            if len(my_entity)==0:
-                my_entity=add_entity({"slug":str(my_id), 
-                                      "type":entity_type,
-                                      "attributes":attributes})
-            else:
-                my_entity=set_entity({"slug":str(my_id), 
-                                      "type":entity_type,
-                                      "attributes":attributes})
 
-            set_list=list()
-            for key, value in attributes.items():
-                set_list.append("`%s`='%s'" % (key, value))
-
-            pos+=1
-            _query = QUERY_UPDATE_RECORD % (DM_DATABASE_NAME, 
-                                            self.object_name, 
-                                            smart_unicode(",".join(set_list)),
-                                            my_entity.id)
-            pos+=1
-            self.transaction_start()
-            self.do_query(_query)
-            self.transaction_commit()
+            self.trace(pos)
             
+            self.key= auth.access_token.key
+            self.secret=auth.access_token.secret
+
+            auth.set_access_token(self.key, self.secret)
+
+            api = tweepy.API(auth)
+
+            self.trace(pos)
+            
+            try:
+                query=QUERY_DELETE_OAUTH_RECORD % (DM_DATABASE_NAME,oauth_token, "twitterConnector")
+                self.do_query(query)
+            except Exception, err:
+                Logger().error("Error: %s (%s)" % (err, query))
+                #raise Exception, err
+
+            me =api.me()
+            my_id=getattr(me,'id')
+            my_name=getattr(me,'name')
+            if my_name is None or my_name =="":
+                my_name=getattr(me,'screen_name')
+            entity_type=self.object_name.split("_")[-1]
+            attributes={"token_key":self.key, "token_secret":self.secret}
+
+            self.trace(pos)
+            
+            entity_type=self.object_name.split("_")[-1]
+            if entity_id is None:
+                remote_id = "%s" % getattr(me,'id')
+                entity_name=my_name
+                entity_slug=microtime_slug()
+                try:
+                    my_entity=add_entity({"slug":entity_slug, 
+                                          "name":entity_name, 
+                                          "type":entity_type,
+                                          "remote_id":remote_id,
+                                          "attributes":attributes
+                                          })
+                    entity_id=my_entity.id
+                except Exception, err:
+                    try:
+                        my_entity=get_entity({"remote_id":remote_id, "type":entity_type})[0]
+                        entity_id=my_entity.id
+                        super(CustomConnector, self).update_record(entity_id, attributes)
+                    except Exception, err:
+                        raise ApiError(None, 3923, "%s - %s" % (Exception, err))
+            else:
+                my_entity=get_entity({"id":str(entity_id), "type":entity_type})[0]
+                super(CustomConnector, self).update_record(entity_id, attributes)
+            
+            self.trace(pos)
+            
+            try:
+                query=QUERY_DELETE_OAUTH_RECORD % (DM_DATABASE_NAME,oauth_token, "twitterConnector")
+                self.do_query(query)
+            except Exception, err:
+                Logger().error("Error: %s (%s)" % (err, query))
+
             return my_entity
         except Exception, err:
-            err="%s - %s" % (pos, err)
+            self.logger.error("%s" % err)
             raise ApiError(None, 3100, err)
         
     def execute(self, entity_id, params):
@@ -419,29 +561,25 @@ class CustomConnector(SimpleDbConnector):
 
         return _normalized
         
-    def update_status(self, entity_id, params):
+    def update_status(self, entity_id, value):
+        params=dict()
+        if isinstance(value, dict):
+            params=value
+        else:
+            params["status"]=value
+
         _status=list()
         try:
             if entity_id!="":
                 api=self.get_api(entity_id=entity_id)
                 if self.record_exists({"entity_id":entity_id}):# or query==QUERY_ADD_RECORD:
-                    _params_list=dict()
-                    for _key in ("status", "in_reply_to_status_id","lat", "long", "source"):
-                        _params_list[_key]=params.get(_key)
-                    if _params_list.get('status'):
-                        if _params_list.get('in_reply_to_status_id'):
-                            if _params_list.get('lat') and _params_list.get('long'):
-                                _status=api.update_status(_params_list.get('status')[:140], _params_list.get('in_reply_to_status_id'), _params_list.get('lat'), _params_list.get('long'))
-                        else:
-                            if _params_list.get('lat') and _params_list.get('long'):
-                                _status=api.update_status(_params_list.get('status')[:140], _params_list.get('lat'), _params_list.get('long'))
-                            else:
-                                _status=api.update_status(_params_list.get('status')[:140])
+                    if params.get('status') is not None:
+                        _status=api.update_status(**params)
                     else:
                         raise ApiError(None, 3900, "status is required (%s)" % params)
                 else:
-                   self.add_record(entity_id, attributes)
-                    #raise ApiError(None, 3901, entity_id)
+                    #self.add_record(entity_id, attributes)
+                    raise ApiError(None, 3901, entity_id)
             else:
                raise ApiError(None, 3900)
         except Exception, err:
@@ -453,14 +591,14 @@ class CustomConnector(SimpleDbConnector):
     def update_record(self, entity_id, attributes, query=QUERY_UPDATE_RECORD):
         try:
             if entity_id!="":
-                api=self.get_api(entity_id=entity_id)
+#                 api=self.get_api(entity_id=entity_id)
                 if self.record_exists({"entity_id":entity_id}):# or query==QUERY_ADD_RECORD:
                     set_list=list()
                     db_attributes=dict()
                     for key, value in attributes.items():
                         if key in CONNECTOR_REMOTE_FIELDS:
                             if key=="status":
-                                api.update_status(value[:140])
+                                self.update_status(entity_id, value)
                         else:
                             db_attributes[key]=value
                     if len(db_attributes):

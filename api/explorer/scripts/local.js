@@ -1,7 +1,7 @@
 /*
 	ERM API Explorer front-end code
-	version 1.0.4
-	last modified 5/12/2011 by MB
+	version 1.0.5
+	last modified 5/18/2011 by MB
 	Copyright (c) 2011 Evectors Ltd.
 */
 
@@ -77,10 +77,17 @@ var selector = {																					// API endpoints selector object
 
 		document.getElementById (target.id + '_p').style.display = 'block';							// show selected option's panel
 		selector.selected = target.id;
-		pane.select (selector.selected, 'get');
 
-		var def = document.getElementById (target.id + '_r_get');
-		def.checked = true;
+		var def = document.getElementById (target.id + '_r_get');									// make sure we have a radio button to check
+		def = (def) ? def : document.getElementById (target.id + '_r_post');
+		def = (def) ? def : document.getElementById (target.id + '_r_put');
+		def = (def) ? def : document.getElementById (target.id + '_r_delete');
+
+		if (def) {																					// we have identified a default method
+			def.checked = true;																		// check radio button
+			var method = def.id.replace (/.*_r_/, '');												// extract method name
+			pane.select (selector.selected, method);												// display matching parameters
+		}
 	}															// endpoints menu click handler
 
 };																				// api endpoints selector object
@@ -88,6 +95,31 @@ var selector = {																					// API endpoints selector object
 var pane = {																						// parameters pane object
 
 	selected: '',																					// selected request type: get/post/put/delete
+
+	prompt: function (elem) {																		// return prompt string based on input field class name
+		var s = '';
+		var chain = elem.className;
+
+		if (chain) {																				// only for input fields with a css class name
+
+			if (chain == 'custom') {																// 'more' field
+				s = "parameter=value;parameter=value\n...\nparameter=value";
+			} else if (chain.indexOf ('def') != -1) {												// regular input field with prompt
+
+				if (chain.indexOf ('comma') != -1) {												// comma separated prompt
+					s = 'enter a comma separated list';
+				} else if (chain.indexOf ('tag') != -1) {											// tag specific prompt
+					s = 'enterenter a comma separated list or tag{schema} string';
+				} else if (chain.indexOf ('dict') != -1) {											// array of objects prompt
+					s = 'enter a json array of objects';
+				} else {																			// object prompt
+					s = 'enter a json object';
+				}
+			}
+		}
+
+		return s;
+	},																	// return prompt string based on input field class name
 
 	init: function () {																				// initialize object
 		var radios = $("input[name='request']");
@@ -112,15 +144,18 @@ var pane = {																						// parameters pane object
 		var def_val = '';
 
 		for (var i = 0; i < inputs.length; i++) {
-			def_val = (inputs[i].className.indexOf ('dict') != -1) ? 'enter a json array of objects' : 'enter a json object';
-			inputs[i].style.color = '#ccc';
-			inputs[i].value = def_val;
-			inputs[i].onfocus = this.focus;
-			inputs[i].onblur = this.blur;
+			var def_val = this.prompt (inputs[i]);
+
+			if (def_val) {																			// only for input fields with a css class name
+				inputs[i].style.color = '#ccc';
+				inputs[i].value = def_val;															// display prompt in grey
+				inputs[i].onfocus = this.focus;														// instal event handlers
+				inputs[i].onblur = this.blur;
+			}
 		}
 
 		var areas = $("textarea[name='more']");
-		def_val = "parameter=value\n...\nparameter=value";
+		def_val = "parameter=value;parameter=value\n...\nparameter=value";
 
 		for (var i = 0; i < areas.length; i++) {													// look through all 'more parameters' textareas
 			areas[i].onfocus = this.focus;
@@ -229,11 +264,11 @@ var pane = {																						// parameters pane object
 		var inputs = $("input[type='text'].def");													// loop thru all text inputs of class def
 
 		for (var i = 0; i < inputs.length; i++) {													// clear all attribute default values
-			def_val = (inputs[i].className.indexOf ('dict') != -1) ? 'enter a json array of objects' : 'enter a json object';
-			inputs[i].value = (inputs[i].value == def_val) ? '' : inputs[i].value;
+			var def_val = pane.prompt (inputs[i]);													// check for a default prompt string in value
+			inputs[i].value = (inputs[i].value == def_val) ? '' : inputs[i].value;					// and remove it
 		}
 
-		def_val = "parameter=value\n...\nparameter=value";
+		def_val = "parameter=value;parameter=value\n...\nparameter=value";
 		var areas = $("textarea[name='more']");
 
 		for (var i = 0; i < areas.length; i++) {													// clear all 'more parameters' default values
@@ -247,9 +282,9 @@ var pane = {																						// parameters pane object
 	focus: function (evt) {																			// input field focus handler
 		evt = (evt) ? evt : window.event;
 		var target = (evt.target) ? evt.target : evt.srcElement;
-		var def_val = (target.className && target.className != 'custom') ? ((target.className.indexOf ('dict') != -1) ? 'enter a json array of objects' : 'enter a json object') : "parameter=value\n...\nparameter=value";
+		var def_val = pane.prompt (target);															// check for a default prompt string in value
 
-		if (target.value == def_val) {
+		if (def_val && target.value == def_val) {
 			target.style.color = 'black';
 			target.value = '';
 		}
@@ -258,9 +293,9 @@ var pane = {																						// parameters pane object
 	blur : function (evt) {																			// input field blur handler
 		evt = (evt) ? evt : window.event;
 		var target = (evt.target) ? evt.target : evt.srcElement;
-		var def_val = (target.className && target.className != 'custom') ? ((target.className.indexOf ('dict') != -1) ? 'enter a json array of objects' : 'enter a json object') : "parameter=value\n...\nparameter=value";
+		var def_val = pane.prompt (target);															// check for a default prompt string in value
 
-		if (target.value == '') {
+		if (def_val && target.value == '') {
 			target.style.color = '#ccc';
 			target.value = def_val;
 		}
@@ -270,7 +305,7 @@ var pane = {																						// parameters pane object
 		var rows = $('#' + selector.selected + '_p_' + pane.selected + ' table tr.nd');				// point to table row hosting the 'more parameters' textarea
 		rows[0].style.display = (rows[0].style.display == 'table-row') ? 'none' : 'table-row';		// switch visibiity
 		var area = document.getElementById (selector.selected + '_p_' + pane.selected + '_more');	// point to the 'more parameters' textarea
-		var def_val = "parameter=value\n...\nparameter=value";
+		var def_val = "parameter=value;parameter=value\n...\nparameter=value";
 
 		if (rows[0].style.display == 'table-row') {													// textarea is visible
 
@@ -340,8 +375,9 @@ var request = {																						// api request object
 		if (pane.selected.match (/(get|delete)/)) {													// GET/DELETE request
 			var search = '';
 
-			for (var i = 0; i < inputs.length; i++) {
-				search += (inputs[i].value) ? ((search) ? ';' : '') + inputs[i].name + '=' + inputs[i].value : '';
+			for (var i = 0; i < inputs.length; i++) {												// input fields of class 'simple' are passed with their value only
+				search += (inputs[i].value) ? ((search) ? ';' : '') + ((inputs[i].className && inputs[i].className.indexOf ('simple') != -1) ? '' : inputs[i].name + '=') + inputs[i].value : '';
+				search += (inputs[i].className && inputs[i].className.indexOf ('simple') != -1) ? '/' : '';
 			}
 
 			if (area.value) {																		// more parameters were specified
@@ -437,8 +473,9 @@ var request = {																						// api request object
 
 		if (pane.selected.match (/(get|delete)/)) {
 
-			for (var i = 0; i < inputs.length; i++) {
-				search += (inputs[i].value) ? ((search) ? ';' : '') + inputs[i].name + '=' + inputs[i].value : '';
+			for (var i = 0; i < inputs.length; i++) {												// input fields of class 'simple' are passed with their value only
+				search += (inputs[i].value) ? ((search) ? ';' : '') + ((inputs[i].className && inputs[i].className.indexOf ('simple') != -1) ? '' : inputs[i].name + '=') + inputs[i].value : '';
+				search += (inputs[i].className && inputs[i].className.indexOf ('simple') != -1) ? '/' : '';
 			}
 
 			if (area.value) {																		// more parameters were specified

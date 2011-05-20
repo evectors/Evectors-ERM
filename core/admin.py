@@ -70,7 +70,7 @@ class RelationshipTypeAllowedAdmin(admin.ModelAdmin):
     list_filter=('rel_type', 'entity_type_from', 'entity_type_to')
 admin.site.register(RelationshipTypeAllowed, RelationshipTypeAllowedAdmin) 
 
-admin.site.register(Relationship)
+admin.site.register(Relationship) 
 
 class RelationshipSchemedTagAdmin(admin.ModelAdmin):
     list_display = ('id', 'items_count', 'object_type', 'tag', 'schema', 'related')

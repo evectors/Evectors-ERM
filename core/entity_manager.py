@@ -48,7 +48,7 @@ ERROR_CODES["1604"]="entity manager: entity_type param is required"
 
 #===============UNION=============#
 
-def get_entity_union(params):
+def get_entity_union(params, api_obj=None):
     try:
         if params.has_key('properties') and params.get('properties')=="1":
             obj=EntityUnion()
@@ -69,7 +69,9 @@ def get_entity_union(params):
             
         objects_count=objects.count()
         if int(params.get('count', 0))==1:
-            result = objects_count
+            if api_obj is not None:
+                api_obj.count=objects_count
+            return objects_count
         else:
             list_offset=max(int(params.get('offset', 0)),0)
             list_limit=max(int(params.get('limit', 20)),1)
@@ -175,7 +177,7 @@ def del_entity_union(params):
 
 #===============ENTITY TYPE=============#
 
-def get_entity_type(params):
+def get_entity_type(params, api_obj=None):
     try:
         if params.has_key('properties') and params.get('properties')=="1":
             obj=EntityType()
@@ -189,7 +191,10 @@ def get_entity_type(params):
         #Insert here additional filtering?
     
         if int(params.get('count', 0))==1:
-            return objects.count()
+            objects_count = objects.count()
+            if api_obj is not None:
+                api_obj.count=objects_count
+            return objects_count
             
         list_offset=max(int(params.get('offset', 0)),0)
         list_limit=max(int(params.get('limit', 20)),1)
@@ -290,7 +295,7 @@ def del_entity_type(params):
 
 #===============ENTITY TYPE ATTRIBUTE=============#    
 
-def get_entity_type_attribute(params):
+def get_entity_type_attribute(params, api_obj=None):
     try:
         if params.has_key('properties') and params.get('properties')=="1":
             obj=EntityType()
@@ -318,7 +323,10 @@ def get_entity_type_attribute(params):
         else:
             return []
         if int(params.get('count', 0))==1:
-            return objects.count()
+            objects_count = objects.count()
+            if api_obj is not None:
+                api_obj.count=objects_count
+            return objects_count
             
         list_offset=max(int(params.get('offset', 0)),0)
         list_limit=max(int(params.get('limit', 20)),1)
@@ -334,7 +342,7 @@ def get_entity_type_attribute(params):
 
 #===============ENTITY TAG SCHEMA=============#    
 
-def get_entity_tag_schema(params):
+def get_entity_tag_schema(params, api_obj=None):
     try:
         if params.has_key('properties') and params.get('properties')=="1":
             obj=EntityTagSchema()
@@ -348,7 +356,10 @@ def get_entity_tag_schema(params):
         #Insert here additional filtering
     
         if int(params.get('count', 0))==1:
-            return objects.count()
+            objects_count = objects.count()
+            if api_obj is not None:
+                api_obj.count=objects_count
+            return objects_count
             
         list_offset=max(int(params.get('offset', 0)),0)
         list_limit=max(int(params.get('limit', 20)),1)
@@ -425,7 +436,7 @@ def del_entity_tag_schema(params): #id=None, slug=None):
 
 #===============ENTITY TAG=============#    
 
-def get_entity_tag(params):
+def get_entity_tag(params, api_obj=None):
 
     if params.has_key('entity_type'):
         try:        
@@ -542,7 +553,7 @@ def del_entity_tag(params): #id=None, slug=None):
 
 #===============ENTITY=============#    
             
-def get_entity(params):
+def get_entity(params, api_obj=None):
     try:
         real_params=dict([key, value] for key, value in params.items() if (value!=None and value!=""))
         
@@ -629,6 +640,8 @@ def get_entity(params):
                 cursor.execute(count_query)
                 total_items=int(cursor.fetchone()[0])
                 if int(real_params.get('count', 0))==1:
+                    if api_obj is not None:
+                        api_obj.count=total_items
                     return total_items
                 
             global_query="SELECT object_id %s ORDER BY core_entitytagcorrelation.weight %s LIMIT %s,%s" % (core_selection, direction, list_offset, list_limit)
@@ -650,7 +663,10 @@ def get_entity(params):
                                                            params.get('return_tags', "") ,
                                                            params.get('rels', "")))
             if int(params.get('total_count', 0))==1:
-                result={"count":total_items, "data":result}
+                if api_obj is not None:
+                    api_obj.count=total_items
+                else:
+                    result={"count":total_items, "data":result}
             return result
 #===========================>Good'ol generic stuff
         else:
@@ -881,7 +897,10 @@ def get_entity(params):
                 return list ( objects.values(params.get('distinct')).distinct());
     
             if int(params.get('count', 0))==1:
-                return objects.count()
+                total_items = objects.count()
+                if api_obj is not None:
+                    api_obj.count=total_items
+                return total_items
             
 #======================>SORTING
             if params.get('sort', "")!="":
@@ -973,8 +992,10 @@ def get_entity(params):
                                      _details_params['return_tags'],
                                      _details_params['return_rels']
                                     ) for item in result]
-                result={"count":total_items, 
-                        "data": result}            
+                if api_obj is not None:
+                    api_obj.count=total_items
+                else:
+                    result={"count":total_items, "data":result}
                 
         return result
     except Exception, err:

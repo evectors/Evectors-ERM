@@ -209,6 +209,35 @@
 	},
 	{
 		"url": "/core/api/%s/relationship/", 
+		"check": {"success": false}, 
+		"type": "relative", 
+		"method": "POST", 
+		"format": "json",
+		"data":{
+			"entity_from":"test-entity",
+			"entity_from_type":"unit-test",
+			"entity_to":"test-entity-2",
+			"entity_to_type":"unit-test",
+			"rel_type":"test-rel"
+				},
+		"format_data":"json",
+		"description": "relate the two entities, should fail as rel_type_allowed has not yet been defined"
+	},{
+		"url": "/core/api/%s/rel_type_allowed/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "POST", 
+		"format": "json",
+		"data":{
+			"rel_type":"test-rel",
+			"entity_from_type":"unit-test",
+			"entity_to_type":"unit-test"
+				},
+		"format_data":"json",
+		"description": "add a relationship type allowed"
+	},
+	{
+		"url": "/core/api/%s/relationship/", 
 		"check": {"success": true}, 
 		"type": "relative", 
 		"method": "POST", 
@@ -224,25 +253,71 @@
 		"description": "relate the two entities"
 	},
 	{
+		"url": "/core/api/%s/rel_type_allowed/rel_type=test-rel;entity_from_type=unit-test;entity_to_type=unit-test", 
+		"check": {"success": false}, 
+		"type": "relative", 
+		"method": "DELETE", 
+		"format": "json",
+		"description": "remove relationship type allowed, will fail as one relationship exists"
+	},
+	{
+		"url": "/core/api/%s/relationship/rel_type=test-rel;entity_from_type=unit-test;entity_to_type=unit-test;entity_from=test-entity;entity_to=test-entity-2", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "DELETE", 
+		"format": "json",
+		"description": "remove relationship"
+	},{
+		"url": "/core/api/%s/rel_type_allowed/rel_type=test-rel;entity_from_type=unit-test;entity_to_type=unit-test", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "DELETE", 
+		"format": "json",
+		"description": "remove relationship type allowed"
+	},{
+		"url": "/core/api/%s/rel_type_allowed/", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "POST", 
+		"format": "json",
+		"data":{
+			"rel_type":"test-rel",
+			"entity_type_from":"unit-test",
+			"entity_type_to":"unit-test"
+				},
+		"format_data":"json",
+		"description": "add a relationship type allowed, old params names"
+	},{
+		"url": "/core/api/%s/rel_type_allowed/rel_type=test-rel;entity_type_from=unit-test;entity_type_to=unit-test", 
+		"check": {"success": true}, 
+		"type": "relative", 
+		"method": "DELETE", 
+		"format": "json",
+		"description": "remove relationship type allowed, old params names"
+	},
+	{
 		"url": "/core/api/%s/rel_type/slug=test-rel", 
 		"check": {"success": true}, 
 		"type": "relative", 
 		"method": "DELETE", 
-		"format": "json"
+		"format": "json",
+		"description": "remove relationship"
 	},
 	{
 		"url": "/core/api/%s/entity/type=unit-test;slug=test-entity", 
 		"check": {"success": true}, 
 		"type": "relative", 
 		"method": "DELETE", 
-		"format": "json"
+		"format": "json",
+		"description": "remove the entity"
 	},
 	{
 		"url": "/core/api/%s/entity_type/slug=unit-test", 
 		"check": {"success": true}, 
 		"type": "relative", 
 		"method": "DELETE", 
-		"format": "json"
+		"format": "json",
+		"description": "remove the entity type"
 	}
 	
 ]

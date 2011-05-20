@@ -6,42 +6,9 @@ from erm.lib.api import *
 
 from erm.settings import *
 
-#===============BOUNCE (dev)=============#
-
-def bounce(request, api_key, **params):
-    
-    #return HttpResponse("%s" % args, mimetype="text/plain")
-    class Bounce_Responder(API):
-
-        def __init__(self, request, api_key, params):
-            super(Bounce_Responder, self).__init__(request, api_key, params)
-            self.validators={'GET':None, 
-                             'POST':None, 
-                             'PUT':None, 
-                             'DEL':None}    
-
-        def get(self):
-            return "get: %s" % self.params
-        
-        def add(self):
-            return  "add: %s" % self.raw_data
-
-        def set(self):
-            return  "set: %s" % self.data
-        
-        def delete(self):
-            return  "delete: %s" % self.params
-    
-    responder=Bounce_Responder(request, api_key, params)
-    return responder.respond()
-
 #===============UNION=============#
 
 class EntityUnionApi(API):
-
-#    def check_params(self, params, missing_list):
-#        if not params.has_key('id') and not(params.has_key('name')) and not(params.has_key('slug')):
-#            missing_list.append('id, name or slug')
 
     def __init__(self,request, api_key, params):
         super(EntityUnionApi, self).__init__(request, api_key, params)
@@ -51,7 +18,7 @@ class EntityUnionApi(API):
                          'DEL':None}    
 
     def get(self):
-        return em.get_entity_union(self.params)
+        return em.get_entity_union(self.params, self)
 
     def add(self):
         return em.add_entity_union(self.raw_data)
@@ -77,7 +44,7 @@ class EntityTypeApi(API):
                          'DEL':{'params':['slug']}}    
 
     def get(self):
-        return em.get_entity_type(self.params)
+        return em.get_entity_type(self.params, self)
 
     def add(self):
         return em.add_entity_type(self.raw_data)
@@ -107,7 +74,7 @@ class EntityTagSchemaApi(API):
                          'DEL':{'params':self.check_params}}    
 
     def get(self):
-        return em.get_entity_tag_schema(self.params)
+        return em.get_entity_tag_schema(self.params, self)
 
     def add(self):
         return em.add_entity_tag_schema(self.raw_data)
@@ -137,7 +104,7 @@ class EntityTagApi(API):
                          'DEL':{'params':self.check_params}}    
 
     def get(self):
-        return em.get_entity_tag(self.params)
+        return em.get_entity_tag(self.params, self)
 
     def add(self):
         return em.add_entity_tag(self.raw_data)
@@ -176,7 +143,7 @@ class EntityApi(API):
                          'DEL':{'params':self.check_params}}    
 
     def get(self):
-        return em.get_entity(self.params)
+        return em.get_entity(self.params, self)
 
     def add(self):
         return em.add_entity(self.raw_data)
@@ -185,7 +152,7 @@ class EntityApi(API):
         return em.set_entity(self.raw_data)
     
     def delete(self):
-        return em.del_entity(self.params)#.get('id'), self.params.get('slug'), self.params.get('type'), self.params.get('type_name'))
+        return em.del_entity(self.params)
 
 def entity(request, api_key, **params):
     responder=EntityApi(request, api_key, params)

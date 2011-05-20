@@ -149,7 +149,7 @@ class TestApi(unittest.TestCase):
                                 expression=("%s %s %s" % (key_value, operators[operator], value))
                                 #print expression
                                 if not eval(expression):
-                                    self.fail("bad result for key '%s': %s [expression: %s] - %s" % (key, key_value, expression, _url))
+                                    self.fail("bad result for key '%s': %s [expression: %s] - %s - %s" % (key, key_value, expression, _url, _res))
                             else:
                                 self.fail("unknown operator: %s - %s" % (operator, _url))
                 except urllib2.HTTPError,error:

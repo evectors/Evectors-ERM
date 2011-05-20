@@ -27,7 +27,7 @@ def entities_rel(request, api_key, **params):
 
 class ErmSearch(API):
     def get(self):
-        return mm.search(self.params)
+        return mm.search(self.params, self)
 def search(request, api_key, **params):
     responder=ErmSearch(request, api_key, params)
     return responder.respond()

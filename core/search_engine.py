@@ -164,7 +164,7 @@ class SearchEngine(object):
                queries, 
                sort=[], 
                range=[],
-               page_size=100, 
+               page_size=20, 
                page_num=0, 
                items_limit=None, 
                mode='SHOULD',

@@ -897,6 +897,9 @@ class RelationshipSchemedTag (models.Model):
                 
 class RelationshipTypeAllowed(models.Model):
     rel_type = models.ForeignKey(RelationshipType, related_name='allowed')
+    # ATTENTION: the following names differ from parameters used in APIs, that are
+    #   entity_from_type
+    #   entity_to_type
     entity_type_from = models.ForeignKey(EntityType, related_name='entity_type_from')
     entity_type_to = models.ForeignKey(EntityType, related_name='entity_type_to')
 
@@ -916,15 +919,11 @@ class RelationshipTypeAllowed(models.Model):
     class Meta:
         verbose_name_plural = "relationship types allowed"         
             
-    def to_dict(self, compact=False):
+    def to_dict(self, compact=True):
         d = dict(
-            id=self.id,
             rel_type=self.rel_type.slug, 
-            rel_type_id=self.rel_type.id, 
-            entity_type_from=self.entity_type_from.slug,
-            entity_type_from_id=self.entity_type_from.id,
-            entity_type_to=self.entity_type_to.slug,
-            entity_type_to_id=self.entity_type_to.id,
+            entity_from_type=self.entity_type_from.slug,
+            entity_to_type=self.entity_type_to.slug,
         )
         return d
 

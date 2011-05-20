@@ -70,8 +70,8 @@ def get_erm_tree(params):
                 entity_dict["type"]=req_entity_type.id
             
             
-            rel_types_allowed=get_rel_type_allowed({"entity_type_from_id":entity_type.id})
-            rel_reverse_types_allowed=get_rel_type_allowed({"entity_type_to_id":entity_type.id})
+            rel_types_allowed=get_rel_type_allowed({"entity_from_type":entity_type.slug})
+            rel_reverse_types_allowed=get_rel_type_allowed({"entity_to_type":entity_type.slug})
             rels_dict=dict()
             
             for rel_type_allowed in rel_types_allowed:
@@ -217,7 +217,7 @@ def parse_search_tags(tags_string):
     return bool_chunks_list
 
 
-def search(params):
+def search(params, api_obj):
     
     search_string=params.get('string', "")
     tags_string=params.get('tags', "")
@@ -305,7 +305,7 @@ def search(params):
                             _range.append(_desc)
 
                     if len(queries):
-                        page_size=int(params.get("page_size", 100))
+                        page_size=int(params.get("page_size", 20))
                         page_num=max(int(params.get("page_num", 1))-1,0)
                         items_limit=params.get("items_limit", None)
                         if items_limit:
@@ -323,32 +323,34 @@ def search(params):
                                                     mode,
                                                     get_query,
                                                     preserve_query)
-                                        
-                        if not get_query:
-                            if bool(int(params.get("get_entities", 0))):
-                                entities_data=list()
-                                _missing_entities=list()
-                                for hit in result['docs']:
-                                    try:
-                                        entity=Entity.objects.get(id=hit['entity_id']).to_dict(bool(int(params.get("compact", 1))), 
-                                                                  params.get("return_attrs", ""), 
-                                                                  params.get("return_tags", ""),
-                                                                  bool(int(params.get("rels", 0)))
-                                                                  )
-                                        entity['lucene_score']=hit['lucene_score']
-                                        entities_data.append(entity)
-                                    except ObjectDoesNotExist:
-                                        _missing_entities.append(hit['entity_id'])
-                                        pass
-                                    except Exception, err:
-                                        raise ApiError(None, "100", "%s: %s" % (Exception, hit))
-                                    
-                                if len(_missing_entities):
-                                    result['missing']=_missing_entities
-                                result['data']=entities_data
-                            result['page']=result['page']+1
-                            result['page_size']=page_size
                         
+                        if not get_query:
+                            entities_data=list()
+                            _missing_entities=list()
+                            for hit in result.get('docs', list()):
+                                try:
+                                    entity=Entity.objects.get(id=hit['entity_id']).to_dict(bool(int(params.get("compact", 0))), 
+                                                              params.get("return_attrs", ""), 
+                                                              params.get("return_tags", ""),
+                                                              bool(int(params.get("rels", 0)))
+                                                              )
+                                    entity['lucene_score']=hit['lucene_score']
+                                    entities_data.append(entity)
+                                except ObjectDoesNotExist:
+                                    _missing_entities.append(hit['entity_id'])
+                                    pass
+                                except Exception, err:
+                                    raise ApiError(None, "100", "%s: %s" % (Exception, hit))
+                                
+                            if len(_missing_entities):
+                                result['missing']=_missing_entities
+                            result['data']=entities_data
+                            
+                            api_obj.count=result.get('count', 0)
+                            api_obj.page=result.get('page', 0)+1
+                            api_obj.page_size=page_size
+                            result = result['data']
+                            
                         return result
                     else:
                         raise ApiError(None, "100", "No valid search passed" % type)

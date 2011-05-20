@@ -535,9 +535,16 @@ class API(object):
                                 self.data=result.to_dict(compact)
                         except:
                             self.data = result
+
         self.response={"success":self.success, 
                        "msg":self.msg, 
                        "data":self.data}
+        
+        for key in ('count', 'page', 'page_size'):
+            value = getattr(self, key, None)
+            if value is not None:
+                self.response[key]=value
+
         if DEBUG_API:
             self.response['method']=self.method
             self.response['raw_data']=self.raw_data

@@ -3,8 +3,6 @@ from django.conf import settings
 from erm.settings import *
 
 urlpatterns = patterns('erm.core.entity_api',
-    #dev
-    (r'^(?P<api_key>[0-9a-zA-Z]{%s})/bounce/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'bounce'),
     #entity_type
     (r'^(?P<api_key>[0-9a-zA-Z]{%s})/entity_union/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'entity_union'),
     #entity_type
@@ -18,8 +16,6 @@ urlpatterns = patterns('erm.core.entity_api',
 )
 
 urlpatterns += patterns('erm.core.rel_api',
-    #dev
-    (r'^(?P<api_key>[0-9a-zA-Z]{%s})/rel_bounce/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'bounce'),
     #rel_tag_schema
     (r'^(?P<api_key>[0-9a-zA-Z]{%s})/rel_tag_schema/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'rel_tag_schema'),
     #rel_tag
@@ -55,15 +51,5 @@ urlpatterns += patterns('erm.core.series_api',
     (r'^(?P<api_key>[0-9a-zA-Z]{%s})/series_current/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'series_current'),
     (r'^(?P<api_key>[0-9a-zA-Z]{%s})/series_rule/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'series_rule'),
     (r'^(?P<api_key>[0-9a-zA-Z]{%s})/series_keys/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'series_keys'),
-)
-
-####Dev patterns
-
-urlpatterns += patterns('erm.core.views',
-    (r'^core/$', 'index'),
-    (r'^xd_receiver\.html$', 'xd_receiver'),
-    (r'^test\.html$', 'test'),
-#    (r'^(?P<api_key>[0-9a-zA-Z]{%s})/splitter/(?:(?P<params>[^/]+))?' % SECRET_KEY_LENGTH, 'splitter'),
-    #(r'(.*)$', 'req_bounce'),
 )
 
